@@ -46,9 +46,16 @@ class GameViewModel: ObservableObject {
     
     /// Reference to settings manager for drop speed
     private let settings = SettingsManager.shared
-    
+
+    /// Whether the player is holding to fast drop
+    private var fastDropActive = false
+
+    /// When the current piece was spawned (for timing bonus)
+    private var pieceSpawnTime: Date?
+
     /// Base fall interval in seconds (decreases as level increases and applies speed setting)
     private var fallInterval: TimeInterval {
+        if fastDropActive { return 0.05 }
         let baseInterval = 1.0 * settings.speedMultiplier
         let levelMultiplier = Double(level - 1) * 0.08 * settings.speedMultiplier
         return max(0.05, baseInterval - levelMultiplier)
@@ -79,6 +86,7 @@ class GameViewModel: ObservableObject {
         sessionTime = 0
         gameState = .playing
         pieceBag = []
+        fastDropActive = false
         
         nextPieceType = getNextPieceFromBag()
         currentPiece = spawnNewPiece()
@@ -192,6 +200,13 @@ class GameViewModel: ObservableObject {
         guard isGameRunning else { return }
         startGameTimer()
     }
+
+    /// Enable or disable fast drop (triggered by long press)
+    func setFastDrop(_ active: Bool) {
+        guard isGameRunning else { return }
+        fastDropActive = active
+        startGameTimer()
+    }
     
     // MARK: - Piece Management
     
@@ -219,25 +234,42 @@ class GameViewModel: ObservableObject {
     private func spawnNewPiece() -> ActivePiece {
         let newPiece = Self.spawnPiece(type: nextPieceType)
         nextPieceType = getNextPieceFromBag()
-        
+
         // Check if new piece can be placed
         if board.isGameOver(newPiece) {
             gameOver()
         }
-        
+
+        pieceSpawnTime = Date()
         return newPiece
     }
     
     /// Lock the current piece and spawn a new one
     private func lockPieceAndSpawn() {
         board.lockPiece(currentPiece)
-        
+
         // Clear any completed lines
         let cleared = board.clearLines()
         if cleared > 0 {
             updateScore(linesCleared: cleared)
         }
-        
+
+        // Award timing bonus based on how quickly the piece was placed
+        if let spawnTime = pieceSpawnTime {
+            let elapsed = Date().timeIntervalSince(spawnTime)
+            let bonus: Int
+            if elapsed < 2.0 {
+                bonus = 50 * level
+            } else if elapsed < 5.0 {
+                bonus = 25 * level
+            } else if elapsed < 10.0 {
+                bonus = 10 * level
+            } else {
+                bonus = 0
+            }
+            score += bonus
+        }
+
         // Spawn new piece
         currentPiece = spawnNewPiece()
     }

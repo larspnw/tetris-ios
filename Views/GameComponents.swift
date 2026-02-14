@@ -253,6 +253,12 @@ struct ControlsHintView: View {
                     Text("Swipe Down")
                         .font(.caption2)
                 }
+
+                VStack(spacing: 4) {
+                    Image(systemName: "hand.tap.fill")
+                    Text("Hold to Drop")
+                        .font(.caption2)
+                }
             }
             .foregroundColor(.white.opacity(0.6))
             .padding(.bottom, 8)

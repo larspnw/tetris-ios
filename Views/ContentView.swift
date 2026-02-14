@@ -144,6 +144,21 @@ struct ContentView: View {
                                 dragOffset = .zero
                             }
                     )
+                    .simultaneousGesture(
+                        LongPressGesture(minimumDuration: 0.3)
+                            .sequenced(before: DragGesture(minimumDistance: 0))
+                            .onChanged { value in
+                                switch value {
+                                case .second(true, _):
+                                    viewModel.setFastDrop(true)
+                                default:
+                                    break
+                                }
+                            }
+                            .onEnded { _ in
+                                viewModel.setFastDrop(false)
+                            }
+                    )
                     .onTapGesture {
                         viewModel.rotatePiece()
                     }
