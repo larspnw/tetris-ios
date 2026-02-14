@@ -33,18 +33,20 @@ struct BlockView: View {
 struct GameBoardView: View {
     let grid: [[Block]]
     let cellSize: CGFloat
+    var spacing: CGFloat = 1
+    var padding: CGFloat = 4
     
     var body: some View {
-        VStack(spacing: 1) {
+        VStack(spacing: spacing) {
             ForEach(0..<grid.count, id: \.self) { row in
-                HStack(spacing: 1) {
+                HStack(spacing: spacing) {
                     ForEach(0..<grid[row].count, id: \.self) { col in
                         BlockView(block: grid[row][col], size: cellSize)
                     }
                 }
             }
         }
-        .padding(4)
+        .padding(padding)
         .background(
             RoundedRectangle(cornerRadius: 8)
                 .fill(Color.black.opacity(0.8))

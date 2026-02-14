@@ -7,19 +7,49 @@ struct ContentView: View {
     
     // Gesture state for tracking swipe direction
     @State private var dragOffset: CGSize = .zero
+    @State private var showSettings = false
     
     // Configuration
-    private let cellSize: CGFloat = 28
     private let swipeThreshold: CGFloat = 20
+    
+    // Board dimensions
+    private let boardWidth = GameConstants.boardWidth
+    private let boardHeight = GameConstants.boardHeight
+    private let cellSpacing: CGFloat = 1
+    private let boardPadding: CGFloat = 4
+    
+    /// Calculate the optimal cell size to fit the board within available space
+    private func calculateCellSize(availableHeight: CGFloat) -> CGFloat {
+        // Calculate space needed for non-board elements (approximate)
+        let headerHeight: CGFloat = 120  // Top bar + stats
+        let controlsHeight: CGFloat = 80 // Controls hint + padding
+        let safeAreaPadding: CGFloat = 60 // Extra padding for safe areas
+        
+        let availableForBoard = availableHeight - headerHeight - controlsHeight - safeAreaPadding
+        
+        // Calculate cell size: (available height - spacing - padding) / number of rows
+        let totalSpacing = CGFloat(boardHeight - 1) * cellSpacing
+        let totalPadding = boardPadding * 2
+        let maxCellSize = (availableForBoard - totalSpacing - totalPadding) / CGFloat(boardHeight)
+        
+        // Also consider width constraint
+        let screenWidth = UIScreen.main.bounds.width - 32 // Side padding
+        let maxCellSizeFromWidth = (screenWidth - totalSpacing - totalPadding) / CGFloat(boardWidth)
+        
+        // Return the smaller of the two, with a reasonable min/max
+        return min(max(min(maxCellSize, maxCellSizeFromWidth), 14), 32)
+    }
     
     var body: some View {
         GeometryReader { geometry in
+            let cellSize = calculateCellSize(availableHeight: geometry.size.height)
+            
             ZStack {
                 // Background
                 Color.black
                     .ignoresSafeArea()
                 
-                VStack(spacing: 16) {
+                VStack(spacing: 12) {
                     // Header with title, back button, and pause button
                     HStack {
                         Button(action: {
@@ -42,6 +72,17 @@ struct ContentView: View {
                             .foregroundColor(.white)
                         
                         Spacer()
+                        
+                        // Settings button
+                        Button(action: {
+                            viewModel.pauseGame()
+                            showSettings = true
+                        }) {
+                            Image(systemName: "gearshape.fill")
+                                .font(.title3)
+                                .foregroundColor(.white)
+                                .padding(8)
+                        }
                         
                         // Pause/Play button
                         Button(action: {
@@ -73,7 +114,7 @@ struct ContentView: View {
                             NextPieceView(
                                 blocks: viewModel.getNextPieceBlocks(),
                                 color: viewModel.nextPieceColor,
-                                cellSize: cellSize * 0.6
+                                cellSize: max(cellSize * 0.55, 14)
                             )
                         }
                         
@@ -89,7 +130,9 @@ struct ContentView: View {
                     // Game board with gesture handling
                     GameBoardView(
                         grid: viewModel.getDisplayGrid(),
-                        cellSize: cellSize
+                        cellSize: cellSize,
+                        spacing: cellSpacing,
+                        padding: boardPadding
                     )
                     .gesture(
                         DragGesture(minimumDistance: 10)
@@ -108,10 +151,10 @@ struct ContentView: View {
                     // Controls hint
                     if viewModel.gameState == .playing {
                         ControlsHintView()
-                            .padding(.bottom, 20)
+                            .padding(.bottom, 8)
                     }
                     
-                    Spacer()
+                    Spacer(minLength: 8)
                 }
                 .padding(.vertical)
                 
@@ -141,6 +184,14 @@ struct ContentView: View {
         .onDisappear {
             // Clean up and save stats when leaving
             viewModel.cleanup()
+        }
+        .sheet(isPresented: $showSettings, onDismiss: {
+            // Resume game when settings is dismissed (if it was playing)
+            if viewModel.gameState == .paused {
+                viewModel.resumeGame()
+            }
+        }) {
+            SettingsView()
         }
     }
     

@@ -44,11 +44,14 @@ class GameViewModel: ObservableObject {
     /// Random generator for pieces
     private var pieceBag: [TetrominoType] = []
     
-    /// Base fall interval in seconds (decreases as level increases)
+    /// Reference to settings manager for drop speed
+    private let settings = SettingsManager.shared
+    
+    /// Base fall interval in seconds (decreases as level increases and applies speed setting)
     private var fallInterval: TimeInterval {
-        let baseInterval = 1.0
-        let levelMultiplier = Double(level - 1) * 0.08
-        return max(0.1, baseInterval - levelMultiplier)
+        let baseInterval = 1.0 * settings.speedMultiplier
+        let levelMultiplier = Double(level - 1) * 0.08 * settings.speedMultiplier
+        return max(0.05, baseInterval - levelMultiplier)
     }
     
     // MARK: - Initialization
@@ -180,6 +183,12 @@ class GameViewModel: ObservableObject {
     
     /// Restart timer when level changes (to update speed)
     private func updateTimerForLevel() {
+        guard isGameRunning else { return }
+        startGameTimer()
+    }
+    
+    /// Call this when speed settings change to apply immediately
+    func applySpeedSetting() {
         guard isGameRunning else { return }
         startGameTimer()
     }

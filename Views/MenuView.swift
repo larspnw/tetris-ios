@@ -3,6 +3,7 @@ import SwiftUI
 /// Main menu view shown when app launches
 struct MenuView: View {
     @Binding var showGame: Bool
+    @State private var showSettings = false
     
     var body: some View {
         ZStack {
@@ -10,7 +11,30 @@ struct MenuView: View {
             Color.black
                 .ignoresSafeArea()
             
+            // Settings sheet
+            .sheet(isPresented: $showSettings) {
+                SettingsView()
+            }
+            
             VStack(spacing: 32) {
+                // Settings button
+                HStack {
+                    Spacer()
+                    Button(action: {
+                        showSettings = true
+                    }) {
+                        Image(systemName: "gearshape.fill")
+                            .font(.title2)
+                            .foregroundColor(.white)
+                            .padding(12)
+                            .background(
+                                Circle()
+                                    .fill(Color.gray.opacity(0.3))
+                            )
+                    }
+                    .padding(.top, 16)
+                    .padding(.trailing, 16)
+                }
                 Spacer()
                 
                 // Title
