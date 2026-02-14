@@ -16,6 +16,7 @@
 		ABC000072345678901234567 /* GameComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABC000008345678901234567 /* GameComponents.swift */; };
 		ABC000182345678901234567 /* MenuView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABC000193456789012345678 /* MenuView.swift */; };
 		ABC0001A2345678901234567 /* StatsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABC0001B2345678901234567 /* StatsManager.swift */; };
+		ABC0001D2345678901234567 /* SettingsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABC0001E2345678901234567 /* SettingsManager.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -30,6 +31,7 @@
 		ABC0000A2345678901234567 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		ABC000193456789012345678 /* MenuView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/MenuView.swift; sourceTree = "<group>"; };
 		ABC0001B2345678901234567 /* StatsManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Managers/StatsManager.swift; sourceTree = "<group>"; };
+		ABC0001E2345678901234567 /* SettingsManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Managers/SettingsManager.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -55,6 +57,7 @@
 				ABC000006345678901234567 /* Board.swift */,
 				ABC000007345678901234567 /* TetrominoType.swift */,
 				ABC0001B2345678901234567 /* StatsManager.swift */,
+				ABC0001E2345678901234567 /* SettingsManager.swift */,
 				ABC0000A2345678901234567 /* Info.plist */,
 				ABC0000D2345678901234567 /* Products */,
 			);
@@ -169,6 +172,7 @@
 				ABC000072345678901234567 /* GameComponents.swift in Sources */,
 				ABC000182345678901234567 /* MenuView.swift in Sources */,
 				ABC0001A2345678901234567 /* StatsManager.swift in Sources */,
+				ABC0001D2345678901234567 /* SettingsManager.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
