@@ -17,6 +17,9 @@
 		ABC000182345678901234567 /* MenuView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABC000193456789012345678 /* MenuView.swift */; };
 		ABC0001A2345678901234567 /* StatsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABC0001B2345678901234567 /* StatsManager.swift */; };
 		ABC0001D2345678901234567 /* SettingsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABC0001E2345678901234567 /* SettingsManager.swift */; };
+		ABC000202345678901234567 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABC0001F2345678901234567 /* SettingsView.swift */; };
+		ABC000222345678901234567 /* AppIconView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABC000212345678901234567 /* AppIconView.swift */; };
+		ABC000242345678901234567 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = ABC000232345678901234567 /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -32,6 +35,9 @@
 		ABC000193456789012345678 /* MenuView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/MenuView.swift; sourceTree = "<group>"; };
 		ABC0001B2345678901234567 /* StatsManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Managers/StatsManager.swift; sourceTree = "<group>"; };
 		ABC0001E2345678901234567 /* SettingsManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Managers/SettingsManager.swift; sourceTree = "<group>"; };
+		ABC0001F2345678901234567 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/SettingsView.swift; sourceTree = "<group>"; };
+		ABC000212345678901234567 /* AppIconView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/AppIconView.swift; sourceTree = "<group>"; };
+		ABC000232345678901234567 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -58,6 +64,9 @@
 				ABC000007345678901234567 /* TetrominoType.swift */,
 				ABC0001B2345678901234567 /* StatsManager.swift */,
 				ABC0001E2345678901234567 /* SettingsManager.swift */,
+				ABC0001F2345678901234567 /* SettingsView.swift */,
+				ABC000212345678901234567 /* AppIconView.swift */,
+				ABC000232345678901234567 /* Assets.xcassets */,
 				ABC0000A2345678901234567 /* Info.plist */,
 				ABC0000D2345678901234567 /* Products */,
 			);
@@ -130,6 +139,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				ABC000242345678901234567 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -173,6 +183,8 @@
 				ABC000182345678901234567 /* MenuView.swift in Sources */,
 				ABC0001A2345678901234567 /* StatsManager.swift in Sources */,
 				ABC0001D2345678901234567 /* SettingsManager.swift in Sources */,
+				ABC000202345678901234567 /* SettingsView.swift in Sources */,
+				ABC000222345678901234567 /* AppIconView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
