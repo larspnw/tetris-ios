@@ -16,7 +16,7 @@ class GameViewModel: ObservableObject {
     @Published private(set) var nextPieceType: TetrominoType
     
     /// Current game state
-    @Published private(set) var gameState: GameState = .playing
+    @Published private(set) var gameState: GameState = .ready
     
     /// Player's current score
     @Published private(set) var score: Int = 0
@@ -27,6 +27,9 @@ class GameViewModel: ObservableObject {
     /// Current level (affects fall speed)
     @Published private(set) var level: Int = 1
     
+    /// Current session time in seconds
+    @Published private(set) var sessionTime: TimeInterval = 0
+    
     /// Whether the game is currently running
     private var isGameRunning: Bool { gameState == .playing }
     
@@ -34,6 +37,9 @@ class GameViewModel: ObservableObject {
     
     /// Timer for automatic piece falling
     private var gameTimer: AnyCancellable?
+    
+    /// Timer for tracking session duration
+    private var sessionTimer: AnyCancellable?
     
     /// Random generator for pieces
     private var pieceBag: [TetrominoType] = []
@@ -51,17 +57,23 @@ class GameViewModel: ObservableObject {
         self.board = Board()
         self.nextPieceType = Self.randomPiece()
         self.currentPiece = Self.spawnPiece(type: Self.randomPiece())
-        startGame()
+        // Don't auto-start - wait for user to start from menu
     }
     
     // MARK: - Game Control
     
     /// Start or restart the game
     func startGame() {
+        // Save any previous session time before resetting
+        if sessionTime > 0 {
+            StatsManager.shared.addTimePlayed(sessionTime)
+        }
+        
         board.reset()
         score = 0
         linesCleared = 0
         level = 1
+        sessionTime = 0
         gameState = .playing
         pieceBag = []
         
@@ -69,6 +81,7 @@ class GameViewModel: ObservableObject {
         currentPiece = spawnNewPiece()
         
         startGameTimer()
+        startSessionTimer()
     }
     
     /// Pause the game
@@ -76,6 +89,7 @@ class GameViewModel: ObservableObject {
         guard gameState == .playing else { return }
         gameState = .paused
         stopGameTimer()
+        stopSessionTimer()
     }
     
     /// Resume the game
@@ -83,6 +97,7 @@ class GameViewModel: ObservableObject {
         guard gameState == .paused else { return }
         gameState = .playing
         startGameTimer()
+        startSessionTimer()
     }
     
     /// Toggle pause state
@@ -98,6 +113,46 @@ class GameViewModel: ObservableObject {
     private func gameOver() {
         gameState = .gameOver
         stopGameTimer()
+        stopSessionTimer()
+        
+        // Update statistics
+        StatsManager.shared.updateHighScore(score)
+        StatsManager.shared.addTimePlayed(sessionTime)
+    }
+    
+    /// Clean up when leaving the game (e.g., returning to menu)
+    func cleanup() {
+        stopGameTimer()
+        stopSessionTimer()
+        
+        // Save session time if game was in progress
+        if sessionTime > 0 && (gameState == .playing || gameState == .paused) {
+            StatsManager.shared.addTimePlayed(sessionTime)
+        }
+    }
+    
+    // MARK: - Session Timer
+    
+    private func startSessionTimer() {
+        stopSessionTimer()
+        
+        sessionTimer = Timer.publish(every: 1.0, on: .main, in: .common)
+            .autoconnect()
+            .sink { [weak self] _ in
+                self?.sessionTime += 1.0
+            }
+    }
+    
+    private func stopSessionTimer() {
+        sessionTimer?.cancel()
+        sessionTimer = nil
+    }
+    
+    /// Format session time for display (mm:ss)
+    func formattedSessionTime() -> String {
+        let minutes = Int(sessionTime) / 60
+        let seconds = Int(sessionTime) % 60
+        return String(format: "%d:%02d", minutes, seconds)
     }
     
     // MARK: - Game Timer

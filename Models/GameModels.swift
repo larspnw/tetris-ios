@@ -56,6 +56,7 @@ struct ActivePiece: Equatable {
 
 /// Game state enum to track current game status
 enum GameState {
+    case ready       // Initial state, waiting to start
     case playing
     case paused
     case gameOver

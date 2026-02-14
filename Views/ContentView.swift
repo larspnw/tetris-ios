@@ -3,6 +3,7 @@ import SwiftUI
 /// Main game view containing the board, score, and controls
 struct ContentView: View {
     @StateObject private var viewModel = GameViewModel()
+    @Environment(\.dismiss) private var dismiss
     
     // Gesture state for tracking swipe direction
     @State private var dragOffset: CGSize = .zero
@@ -19,8 +20,22 @@ struct ContentView: View {
                     .ignoresSafeArea()
                 
                 VStack(spacing: 16) {
-                    // Header with title and pause button
+                    // Header with title, back button, and pause button
                     HStack {
+                        Button(action: {
+                            viewModel.cleanup()
+                            dismiss()
+                        }) {
+                            Image(systemName: "chevron.left")
+                                .font(.title2)
+                                .foregroundColor(.white)
+                                .padding(8)
+                                .background(
+                                    Circle()
+                                        .fill(Color.gray.opacity(0.3))
+                                )
+                        }
+                        
                         Text("TETRIS")
                             .font(.system(.title, design: .rounded))
                             .fontWeight(.bold)
@@ -39,9 +54,12 @@ struct ContentView: View {
                     }
                     .padding(.horizontal)
                     
-                    // Score and info row
+                    // Score, time, and info row
                     HStack(spacing: 12) {
-                        ScoreView(title: "SCORE", value: "\(viewModel.score)")
+                        VStack(spacing: 8) {
+                            ScoreView(title: "SCORE", value: "\(viewModel.score)")
+                            ScoreView(title: "TIME", value: viewModel.formattedSessionTime())
+                        }
                         
                         Spacer()
                         
@@ -115,6 +133,14 @@ struct ContentView: View {
                     )
                 }
             }
+        }
+        .onAppear {
+            // Start the game when view appears
+            viewModel.startGame()
+        }
+        .onDisappear {
+            // Clean up and save stats when leaving
+            viewModel.cleanup()
         }
     }
     

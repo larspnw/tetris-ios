@@ -14,6 +14,8 @@
 		ABC000052345678901234567 /* Board.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABC000006345678901234567 /* Board.swift */; };
 		ABC000062345678901234567 /* TetrominoType.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABC000007345678901234567 /* TetrominoType.swift */; };
 		ABC000072345678901234567 /* GameComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABC000008345678901234567 /* GameComponents.swift */; };
+		ABC000182345678901234567 /* MenuView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABC000193456789012345678 /* MenuView.swift */; };
+		ABC0001A2345678901234567 /* StatsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABC0001B2345678901234567 /* StatsManager.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -26,6 +28,8 @@
 		ABC000008345678901234567 /* GameComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/GameComponents.swift; sourceTree = "<group>"; };
 		ABC000092345678901234567 /* Tetris.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Tetris.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		ABC0000A2345678901234567 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		ABC000193456789012345678 /* MenuView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/MenuView.swift; sourceTree = "<group>"; };
+		ABC0001B2345678901234567 /* StatsManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Managers/StatsManager.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -45,10 +49,12 @@
 				ABC000002345678901234567 /* TetrisApp.swift */,
 				ABC000003345678901234567 /* ContentView.swift */,
 				ABC000008345678901234567 /* GameComponents.swift */,
+				ABC000193456789012345678 /* MenuView.swift */,
 				ABC000004345678901234567 /* GameViewModel.swift */,
 				ABC000005345678901234567 /* GameModels.swift */,
 				ABC000006345678901234567 /* Board.swift */,
 				ABC000007345678901234567 /* TetrominoType.swift */,
+				ABC0001B2345678901234567 /* StatsManager.swift */,
 				ABC0000A2345678901234567 /* Info.plist */,
 				ABC0000D2345678901234567 /* Products */,
 			);
@@ -69,6 +75,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = ABC0000F2345678901234567 /* Build configuration list for PBXNativeTarget "Tetris" */;
 			buildPhases = (
+				ABC0001C2345678901234567 /* Increment Build Version */,
 				ABC000102345678901234567 /* Sources */,
 				ABC0000B2345678901234567 /* Frameworks */,
 				ABC000112345678901234567 /* Resources */,
@@ -125,6 +132,29 @@
 		};
 /* End PBXResourcesBuildPhase section */
 
+/* Begin PBXShellScriptBuildPhase section */
+		ABC0001C2345678901234567 /* Increment Build Version */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/Info.plist",
+			);
+			name = "Increment Build Version";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "#!/bin/bash\n\"${SRCROOT}/scripts/increment-build.sh\"\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		ABC000102345678901234567 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
@@ -137,6 +167,8 @@
 				ABC000052345678901234567 /* Board.swift in Sources */,
 				ABC000062345678901234567 /* TetrominoType.swift in Sources */,
 				ABC000072345678901234567 /* GameComponents.swift in Sources */,
+				ABC000182345678901234567 /* MenuView.swift in Sources */,
+				ABC0001A2345678901234567 /* StatsManager.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
