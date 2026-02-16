@@ -5,12 +5,15 @@ struct ContentView: View {
     @StateObject private var viewModel = GameViewModel()
     @Environment(\.dismiss) private var dismiss
     
-    // Gesture state for tracking swipe direction
+    // Gesture state
     @State private var dragOffset: CGSize = .zero
     @State private var showSettings = false
-    
+    @State private var touchDownTime: Date?
+    @State private var fastDropWorkItem: DispatchWorkItem?
+
     // Configuration
     private let swipeThreshold: CGFloat = 20
+    private let longPressThreshold: TimeInterval = 0.3
     
     // Board dimensions
     private let boardWidth = GameConstants.boardWidth
@@ -135,34 +138,39 @@ struct ContentView: View {
                         padding: boardPadding
                     )
                     .gesture(
-                        DragGesture(minimumDistance: 10)
+                        DragGesture(minimumDistance: 0)
                             .onChanged { value in
+                                if touchDownTime == nil {
+                                    touchDownTime = Date()
+                                    // Schedule fast drop after hold threshold
+                                    let workItem = DispatchWorkItem { [self] in
+                                        viewModel.setFastDrop(true)
+                                    }
+                                    fastDropWorkItem = workItem
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + longPressThreshold, execute: workItem)
+                                }
                                 dragOffset = value.translation
                             }
                             .onEnded { value in
-                                handleSwipe(value: value)
-                                dragOffset = .zero
-                            }
-                    )
-                    .simultaneousGesture(
-                        LongPressGesture(minimumDuration: 0.3)
-                            .sequenced(before: DragGesture(minimumDistance: 0))
-                            .onChanged { value in
-                                switch value {
-                                case .second(true, _):
-                                    viewModel.setFastDrop(true)
-                                default:
-                                    break
-                                }
-                            }
-                            .onEnded { _ in
+                                // Cancel pending fast drop activation
+                                fastDropWorkItem?.cancel()
+                                fastDropWorkItem = nil
+                                // Deactivate fast drop if it was active
                                 viewModel.setFastDrop(false)
-                            }
-                    )
-                    .highPriorityGesture(
-                        TapGesture()
-                            .onEnded {
-                                viewModel.rotatePiece()
+
+                                let horizontal = value.translation.width
+                                let vertical = value.translation.height
+                                let distance = max(abs(horizontal), abs(vertical))
+
+                                if distance < swipeThreshold {
+                                    // Minimal movement — treat as tap to rotate
+                                    viewModel.rotatePiece()
+                                } else {
+                                    handleSwipe(value: value)
+                                }
+
+                                touchDownTime = nil
+                                dragOffset = .zero
                             }
                     )
                     
