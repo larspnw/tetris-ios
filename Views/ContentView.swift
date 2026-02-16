@@ -159,9 +159,12 @@ struct ContentView: View {
                                 viewModel.setFastDrop(false)
                             }
                     )
-                    .onTapGesture {
-                        viewModel.rotatePiece()
-                    }
+                    .highPriorityGesture(
+                        TapGesture()
+                            .onEnded {
+                                viewModel.rotatePiece()
+                            }
+                    )
                     
                     // Controls hint
                     if viewModel.gameState == .playing {
