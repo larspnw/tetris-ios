@@ -103,7 +103,8 @@ struct ContentView: View {
                 Text("HOLD").font(.caption2).foregroundColor(.secondary)
                 PiecePreview(kind: vm.engine.holdKind, cellSize: cell * 0.5, dimmed: true)
             }
-            GameBoardView(grid: BoardRenderer.grid(vm.engine, ghostOn: settings.ghostEnabled), cellSize: cell)
+            GameBoardView(grid: BoardRenderer.grid(vm.engine, ghostOn: settings.ghostEnabled),
+                          cellSize: cell, clearProgress: vm.engine.clearProgress)
                 .gesture(boardGesture(cell: cell))
             VStack(spacing: 6) {
                 Text("NEXT").font(.caption2).foregroundColor(.secondary)

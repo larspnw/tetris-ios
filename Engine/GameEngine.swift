@@ -20,6 +20,9 @@ public final class GameEngine {
     // Configuration.
     public let mode: GameMode
     public let previewCount: Int
+    /// Pause (seconds) after a line clear during which full rows are shown before they
+    /// collapse. Default 0 keeps clears instantaneous; the app sets a small value to animate.
+    public var lineClearDelay: TimeInterval = 0
 
     // Observable-ish state (the app layer reads these each frame).
     public private(set) var field: Playfield
@@ -35,6 +38,15 @@ public final class GameEngine {
 
     /// True when the current piece is resting on the stack/floor (lock delay is counting).
     public var isOnGround: Bool { field.collides(current.moved(dx: 0, dy: 1)) }
+
+    /// Rows currently flashing before they collapse (empty unless mid line-clear animation).
+    public private(set) var clearingRows: [Int] = []
+    public var isClearing: Bool { !clearingRows.isEmpty }
+    /// Progress of the line-clear animation, 0...1.
+    public var clearProgress: Double {
+        isClearing ? min(1, clearTimer / max(0.0001, lineClearDelay)) : 0
+    }
+    private var clearTimer: TimeInterval = 0
 
     // Internals.
     private var bag: SevenBag
@@ -93,6 +105,7 @@ public final class GameEngine {
         fallAccumulator = 0; lockTimer = 0; lockResets = 0
         lastActionWasRotation = false; usedLongKick = false
         lastOutcome = .zero
+        clearingRows = []; clearTimer = 0
         status = .playing
         spawnNext()
     }
@@ -129,6 +142,13 @@ public final class GameEngine {
             return
         }
 
+        // While a line clear is animating, the board is frozen until the delay elapses.
+        if isClearing {
+            clearTimer += dt
+            if clearTimer >= lineClearDelay { finalizeClear() }
+            return
+        }
+
         let grounded = field.collides(current.moved(dx: 0, dy: 1))
         if grounded {
             lockTimer += dt
@@ -158,7 +178,7 @@ public final class GameEngine {
     /// Useful for discrete (swipe/tap) soft drops. Returns whether it moved.
     @discardableResult
     public func softDropStep() -> Bool {
-        guard status == .playing else { return false }
+        guard status == .playing, !isClearing else { return false }
         let cand = current.moved(dx: 0, dy: 1)
         guard !field.collides(cand) else { return false }
         current = cand
@@ -168,7 +188,7 @@ public final class GameEngine {
     }
 
     public func setSoftDrop(_ on: Bool) {
-        guard status == .playing else { return }
+        guard status == .playing, !isClearing else { return }
         softDropping = on
         if on { fallAccumulator = currentFallInterval() } // first step is immediate
     }
@@ -179,7 +199,7 @@ public final class GameEngine {
     public func moveRight() -> Bool { move(dx: 1) }
 
     private func move(dx: Int) -> Bool {
-        guard status == .playing else { return false }
+        guard status == .playing, !isClearing else { return false }
         let cand = current.moved(dx: dx, dy: 0)
         guard !field.collides(cand) else { return false }
         current = cand
@@ -190,7 +210,7 @@ public final class GameEngine {
 
     @discardableResult
     public func rotate(clockwise: Bool) -> Bool {
-        guard status == .playing else { return false }
+        guard status == .playing, !isClearing else { return false }
         let from = current.state
         let to = from.rotated(clockwise: clockwise)
         let offsets = SRSKicks.offsets(kind: current.kind, from: from, to: to)
@@ -216,7 +236,7 @@ public final class GameEngine {
     }
 
     public func hardDrop() {
-        guard status == .playing else { return }
+        guard status == .playing, !isClearing else { return }
         let d = field.dropDistance(current)
         if d > 0 {
             current = current.moved(dx: 0, dy: d)
@@ -227,7 +247,7 @@ public final class GameEngine {
     }
 
     public func hold() {
-        guard status == .playing, canHold else { return }
+        guard status == .playing, canHold, !isClearing else { return }
         canHold = false
         let outgoing = current.kind
         if let h = holdKind {
@@ -248,8 +268,10 @@ public final class GameEngine {
                                           lastActionWasRotation: lastActionWasRotation,
                                           usedLongKick: usedLongKick)
         field.lock(current)
-        let cleared = field.clearFullLines().count
-        let perfect = (cleared > 0) && field.isEmpty
+        let full = field.fullRows()
+        let cleared = full.count
+        // Would the field be empty once these rows are removed? (perfect clear)
+        let perfect = (cleared > 0) && (field.filledCount == cleared * field.width)
 
         if cleared > 0 || tspin != .none {
             let outcome = scorer.register(lines: cleared, tspin: tspin, level: level, perfectClear: perfect)
@@ -264,12 +286,34 @@ public final class GameEngine {
         level = lines / 10 + 1
         piecesPlaced += 1
 
-        // Mode completion check (Sprint).
+        // Mode completion check (Sprint): finish immediately, removing the rows.
         if mode == .sprint && lines >= GameMode.sprintLineGoal {
+            field.clearFullLines()
             status = .finished
             return
         }
 
+        if lineClearDelay > 0 && cleared > 0 {
+            // Defer the collapse + next spawn so the UI can animate the full rows.
+            clearingRows = full
+            clearTimer = 0
+        } else {
+            if cleared > 0 { field.clearFullLines() }
+            canHold = true
+            spawnNext()
+        }
+    }
+
+    #if DEBUG
+    /// Test hook: load a specific board state (not part of the shipping API).
+    func _testLoadField(_ f: Playfield) { field = f }
+    #endif
+
+    /// Remove the flashed rows and bring in the next piece (end of the clear animation).
+    private func finalizeClear() {
+        field.clearFullLines()
+        clearingRows = []
+        clearTimer = 0
         canHold = true
         spawnNext()
     }

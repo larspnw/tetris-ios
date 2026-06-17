@@ -52,6 +52,16 @@ public struct Playfield: Equatable, Sendable {
         }
     }
 
+    /// Indices of all currently-full rows (without removing them).
+    public func fullRows() -> [Int] {
+        (0..<totalHeight).filter { isRowFull($0) }
+    }
+
+    /// Count of occupied cells (for perfect-clear detection).
+    public var filledCount: Int {
+        cells.reduce(0) { $0 + $1.reduce(0) { $0 + ($1 == nil ? 0 : 1) } }
+    }
+
     public func isRowFull(_ y: Int) -> Bool {
         guard y >= 0 && y < totalHeight else { return false }
         return cells[y].allSatisfy { $0 != nil }

@@ -37,6 +37,7 @@ final class GameViewModel: NSObject, ObservableObject {
         self.mode = mode
         self.engine = GameEngine(mode: mode)
         super.init()
+        engine.lineClearDelay = 0.35 // brief flash/collapse animation on line clears
     }
 
     // MARK: - Lifecycle

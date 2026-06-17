@@ -4,6 +4,7 @@ import SwiftUI
 struct RenderCell: Equatable {
     var color: Color?
     var ghost: Bool
+    var clearing: Bool = false
 }
 
 enum BoardRenderer {
@@ -19,6 +20,16 @@ enum BoardRenderer {
                 grid[r][x].color = f.cells[fy][x]!.color
             }
         }
+
+        // While clearing, freeze the stack and flash the full rows; no ghost/current piece.
+        if engine.isClearing {
+            let clearingSet = Set(engine.clearingRows.map { $0 - f.bufferHeight })
+            for r in clearingSet where r >= 0 && r < f.visibleHeight {
+                for x in 0..<f.width { grid[r][x].clearing = true }
+            }
+            return grid
+        }
+
         if ghostOn {
             for c in engine.ghost.cells {
                 let r = c.y - f.bufferHeight
@@ -41,6 +52,7 @@ enum BoardRenderer {
 struct BlockView: View {
     let cell: RenderCell
     let size: CGFloat
+    var clearProgress: Double = 0
 
     var body: some View {
         ZStack {
@@ -50,7 +62,7 @@ struct BlockView: View {
                     RoundedRectangle(cornerRadius: size * 0.16)
                         .stroke(strokeColor, lineWidth: cell.ghost ? 1.5 : 0.5)
                 )
-            if cell.color != nil, !cell.ghost {
+            if cell.color != nil, !cell.ghost, !cell.clearing {
                 RoundedRectangle(cornerRadius: size * 0.12)
                     .fill(LinearGradient(colors: [.white.opacity(0.35), .clear],
                                          startPoint: .topLeading, endPoint: .bottomTrailing))
@@ -58,9 +70,13 @@ struct BlockView: View {
             }
         }
         .frame(width: size, height: size)
+        // Clearing rows flash white, then shrink and fade away as the collapse completes.
+        .scaleEffect(cell.clearing ? CGFloat(1 - 0.9 * clearProgress) : 1)
+        .opacity(cell.clearing ? max(0, 1 - clearProgress) : 1)
     }
 
     private var fillColor: Color {
+        if cell.clearing { return .white }
         guard let color = cell.color else { return Color.white.opacity(0.04) }
         return cell.ghost ? color.opacity(0.18) : color
     }
@@ -75,13 +91,14 @@ struct GameBoardView: View {
     let grid: [[RenderCell]]
     let cellSize: CGFloat
     var spacing: CGFloat = 1
+    var clearProgress: Double = 0
 
     var body: some View {
         VStack(spacing: spacing) {
             ForEach(0..<grid.count, id: \.self) { row in
                 HStack(spacing: spacing) {
                     ForEach(0..<grid[row].count, id: \.self) { col in
-                        BlockView(cell: grid[row][col], size: cellSize)
+                        BlockView(cell: grid[row][col], size: cellSize, clearProgress: clearProgress)
                     }
                 }
             }

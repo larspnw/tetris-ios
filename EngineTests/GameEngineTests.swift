@@ -89,6 +89,35 @@ final class GameEngineTests: XCTestCase {
         XCTAssertEqual(e.score, 1)
     }
 
+    func testLineClearAnimationFreezesThenCollapses() {
+        let e = engine(.zen)
+        e.start()
+        e.lineClearDelay = 0.3
+        // Pre-fill the bottom row so the next lock triggers a clear.
+        var f = Playfield()
+        let bottom = f.totalHeight - 1
+        for x in 0..<f.width { f.setCell(.o, at: Coord(x, bottom)) }
+        e._testLoadField(f)
+
+        e.hardDrop() // locks on top of the full row → enters the clearing animation
+        XCTAssertTrue(e.isClearing)
+        XCTAssertEqual(e.clearingRows, [bottom])
+        XCTAssertEqual(e.lines, 1)
+        XCTAssertGreaterThan(e.clearProgress, 0.0 - 0.0001)
+
+        // Inputs are gated while clearing.
+        XCTAssertFalse(e.moveLeft())
+        XCTAssertFalse(e.rotate(clockwise: true))
+
+        e.advance(dt: 0.1)
+        XCTAssertTrue(e.isClearing, "still animating before the delay elapses")
+
+        e.advance(dt: 0.3) // past the delay → collapse + spawn
+        XCTAssertFalse(e.isClearing)
+        XCTAssertFalse(e.field.isRowFull(bottom))
+        XCTAssertEqual(e.clearProgress, 0)
+    }
+
     func testGravityMovesPieceDown() {
         let e = engine(.zen)
         e.start()
