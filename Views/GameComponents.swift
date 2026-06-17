@@ -1,267 +1,155 @@
 import SwiftUI
 
-/// A single block cell view
-struct BlockView: View {
-    let block: Block
-    let size: CGFloat
-    
-    var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: size * 0.15)
-                .fill(block.isFilled ? block.color : Color.gray.opacity(0.1))
-                .overlay(
-                    RoundedRectangle(cornerRadius: size * 0.15)
-                        .stroke(Color.gray.opacity(0.2), lineWidth: 0.5)
-                )
-            
-            // Add a subtle inner highlight for filled blocks
-            if block.isFilled {
-                RoundedRectangle(cornerRadius: size * 0.1)
-                    .fill(LinearGradient(
-                        colors: [.white.opacity(0.3), .clear],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    ))
-                    .padding(size * 0.1)
+/// One rendered cell of the visible board.
+struct RenderCell: Equatable {
+    var color: Color?
+    var ghost: Bool
+    var clearing: Bool = false
+}
+
+enum BoardRenderer {
+    /// Build the visible grid (locked stack + ghost + current piece) for rendering.
+    static func grid(_ engine: GameEngine, ghostOn: Bool) -> [[RenderCell]] {
+        let f = engine.field
+        var grid = Array(repeating: Array(repeating: RenderCell(color: nil, ghost: false), count: f.width),
+                         count: f.visibleHeight)
+
+        for r in 0..<f.visibleHeight {
+            let fy = f.bufferHeight + r
+            for x in 0..<f.width where f.cells[fy][x] != nil {
+                grid[r][x].color = f.cells[fy][x]!.color
             }
         }
-        .frame(width: size, height: size)
+
+        // While clearing, freeze the stack and flash the full rows; no ghost/current piece.
+        if engine.isClearing {
+            let clearingSet = Set(engine.clearingRows.map { $0 - f.bufferHeight })
+            for r in clearingSet where r >= 0 && r < f.visibleHeight {
+                for x in 0..<f.width { grid[r][x].clearing = true }
+            }
+            return grid
+        }
+
+        if ghostOn {
+            for c in engine.ghost.cells {
+                let r = c.y - f.bufferHeight
+                if r >= 0, r < f.visibleHeight, c.x >= 0, c.x < f.width, grid[r][c.x].color == nil {
+                    grid[r][c.x] = RenderCell(color: engine.current.kind.color, ghost: true)
+                }
+            }
+        }
+        for c in engine.current.cells {
+            let r = c.y - f.bufferHeight
+            if r >= 0, r < f.visibleHeight, c.x >= 0, c.x < f.width {
+                grid[r][c.x] = RenderCell(color: engine.current.kind.color, ghost: false)
+            }
+        }
+        return grid
     }
 }
 
-/// The main game board view showing the 10x20 grid
+/// A single board cell.
+struct BlockView: View {
+    let cell: RenderCell
+    let size: CGFloat
+    var clearProgress: Double = 0
+
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: size * 0.16)
+                .fill(fillColor)
+                .overlay(
+                    RoundedRectangle(cornerRadius: size * 0.16)
+                        .stroke(strokeColor, lineWidth: cell.ghost ? 1.5 : 0.5)
+                )
+            if cell.color != nil, !cell.ghost, !cell.clearing {
+                RoundedRectangle(cornerRadius: size * 0.12)
+                    .fill(LinearGradient(colors: [.white.opacity(0.35), .clear],
+                                         startPoint: .topLeading, endPoint: .bottomTrailing))
+                    .padding(size * 0.12)
+            }
+        }
+        .frame(width: size, height: size)
+        // Clearing rows flash white, then shrink and fade away as the collapse completes.
+        .scaleEffect(cell.clearing ? CGFloat(1 - 0.9 * clearProgress) : 1)
+        .opacity(cell.clearing ? max(0, 1 - clearProgress) : 1)
+    }
+
+    private var fillColor: Color {
+        if cell.clearing { return .white }
+        guard let color = cell.color else { return Color.white.opacity(0.04) }
+        return cell.ghost ? color.opacity(0.18) : color
+    }
+    private var strokeColor: Color {
+        guard let color = cell.color else { return Color.white.opacity(0.06) }
+        return cell.ghost ? color.opacity(0.7) : Color.black.opacity(0.25)
+    }
+}
+
+/// The main playfield.
 struct GameBoardView: View {
-    let grid: [[Block]]
+    let grid: [[RenderCell]]
     let cellSize: CGFloat
     var spacing: CGFloat = 1
-    var padding: CGFloat = 4
-    
+    var clearProgress: Double = 0
+
     var body: some View {
         VStack(spacing: spacing) {
             ForEach(0..<grid.count, id: \.self) { row in
                 HStack(spacing: spacing) {
                     ForEach(0..<grid[row].count, id: \.self) { col in
-                        BlockView(block: grid[row][col], size: cellSize)
+                        BlockView(cell: grid[row][col], size: cellSize, clearProgress: clearProgress)
                     }
                 }
             }
         }
-        .padding(padding)
-        .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(Color.black.opacity(0.8))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(Color.gray.opacity(0.4), lineWidth: 2)
-        )
+        .padding(4)
+        .background(RoundedRectangle(cornerRadius: 8).fill(Color.black.opacity(0.85)))
+        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.white.opacity(0.15), lineWidth: 1.5))
     }
 }
 
-/// Preview view showing the next piece
-struct NextPieceView: View {
-    let blocks: [[Bool]]
-    let color: Color
+/// A small preview box for the hold slot or a next-queue entry.
+struct PiecePreview: View {
+    let kind: TetrominoKind?
     let cellSize: CGFloat
-    
+    var dimmed: Bool = false
+
     var body: some View {
-        VStack(spacing: 2) {
-            ForEach(0..<4, id: \.self) { row in
-                HStack(spacing: 2) {
-                    ForEach(0..<4, id: \.self) { col in
-                        if blocks[row][col] {
-                            RoundedRectangle(cornerRadius: cellSize * 0.15)
-                                .fill(color)
-                                .frame(width: cellSize, height: cellSize)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: cellSize * 0.1)
-                                        .fill(LinearGradient(
-                                            colors: [.white.opacity(0.3), .clear],
-                                            startPoint: .topLeading,
-                                            endPoint: .bottomTrailing
-                                        ))
-                                        .padding(cellSize * 0.1)
-                                )
-                        } else {
-                            Color.clear
-                                .frame(width: cellSize, height: cellSize)
-                        }
+        let cells = kind.map { TetrominoShapes.cells($0, .spawn) } ?? []
+        let xs = cells.map { $0.x }, ys = cells.map { $0.y }
+        let minX = xs.min() ?? 0, maxX = xs.max() ?? 0
+        let minY = ys.min() ?? 0, maxY = ys.max() ?? 0
+        let cols = max(1, maxX - minX + 1), rows = max(1, maxY - minY + 1)
+        let occupied = Set(cells.map { Coord($0.x - minX, $0.y - minY) })
+
+        return VStack(spacing: 1) {
+            ForEach(0..<rows, id: \.self) { r in
+                HStack(spacing: 1) {
+                    ForEach(0..<cols, id: \.self) { c in
+                        let on = occupied.contains(Coord(c, r))
+                        RoundedRectangle(cornerRadius: cellSize * 0.16)
+                            .fill(on ? (kind?.color ?? .clear).opacity(dimmed ? 0.4 : 1) : .clear)
+                            .frame(width: cellSize, height: cellSize)
                     }
                 }
             }
         }
-        .padding(8)
-        .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(Color.gray.opacity(0.15))
-        )
+        .frame(width: cellSize * 4.2, height: cellSize * 3.0)
     }
 }
 
-/// Score display component
-struct ScoreView: View {
+/// A labeled stat chip.
+struct StatChip: View {
     let title: String
     let value: String
-    
     var body: some View {
-        VStack(spacing: 4) {
-            Text(title)
-                .font(.caption)
-                .fontWeight(.medium)
-                .foregroundColor(.secondary)
-            
-            Text(value)
-                .font(.title2)
-                .fontWeight(.bold)
-                .monospacedDigit()
+        VStack(spacing: 3) {
+            Text(title).font(.caption2).fontWeight(.semibold).foregroundColor(.secondary)
+            Text(value).font(.headline).fontWeight(.bold).monospacedDigit().foregroundColor(.white)
         }
-        .frame(minWidth: 80)
-        .padding(.vertical, 8)
-        .padding(.horizontal, 12)
-        .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(Color.gray.opacity(0.15))
-        )
-    }
-}
-
-/// Game over overlay
-struct GameOverOverlay: View {
-    let score: Int
-    let level: Int
-    let linesCleared: Int
-    let onRestart: () -> Void
-    
-    var body: some View {
-        ZStack {
-            Color.black.opacity(0.7)
-                .ignoresSafeArea()
-            
-            VStack(spacing: 20) {
-                Text("GAME OVER")
-                    .font(.largeTitle)
-                    .fontWeight(.bold)
-                    .foregroundColor(.white)
-                
-                VStack(spacing: 8) {
-                    Text("Final Score: \(score)")
-                        .font(.title2)
-                        .foregroundColor(.white)
-                    
-                    Text("Level: \(level)")
-                        .font(.headline)
-                        .foregroundColor(.white.opacity(0.8))
-                    
-                    Text("Lines: \(linesCleared)")
-                        .font(.headline)
-                        .foregroundColor(.white.opacity(0.8))
-                }
-                
-                Button(action: onRestart) {
-                    Text("Play Again")
-                        .font(.headline)
-                        .fontWeight(.semibold)
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 32)
-                        .padding(.vertical, 16)
-                        .background(
-                            RoundedRectangle(cornerRadius: 12)
-                                .fill(Color.green)
-                        )
-                }
-                .padding(.top, 16)
-            }
-        }
-    }
-}
-
-/// Pause overlay
-struct PauseOverlay: View {
-    let onResume: () -> Void
-    let onRestart: () -> Void
-    
-    var body: some View {
-        ZStack {
-            Color.black.opacity(0.7)
-                .ignoresSafeArea()
-            
-            VStack(spacing: 24) {
-                Text("PAUSED")
-                    .font(.largeTitle)
-                    .fontWeight(.bold)
-                    .foregroundColor(.white)
-                
-                VStack(spacing: 12) {
-                    Button(action: onResume) {
-                        HStack {
-                            Image(systemName: "play.fill")
-                            Text("Resume")
-                        }
-                        .font(.headline)
-                        .fontWeight(.semibold)
-                        .foregroundColor(.white)
-                        .frame(maxWidth: 200)
-                        .padding(.vertical, 16)
-                        .background(
-                            RoundedRectangle(cornerRadius: 12)
-                                .fill(Color.blue)
-                        )
-                    }
-                    
-                    Button(action: onRestart) {
-                        HStack {
-                            Image(systemName: "arrow.clockwise")
-                            Text("Restart")
-                        }
-                        .font(.headline)
-                        .fontWeight(.semibold)
-                        .foregroundColor(.white)
-                        .frame(maxWidth: 200)
-                        .padding(.vertical, 16)
-                        .background(
-                            RoundedRectangle(cornerRadius: 12)
-                                .fill(Color.orange)
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-/// Touch controls indicator overlay
-struct ControlsHintView: View {
-    var body: some View {
-        VStack {
-            Spacer()
-            
-            HStack(spacing: 20) {
-                VStack(spacing: 4) {
-                    Image(systemName: "arrow.left")
-                    Text("Swipe")
-                        .font(.caption2)
-                }
-                
-                VStack(spacing: 4) {
-                    Image(systemName: "hand.tap")
-                    Text("Tap to Rotate")
-                        .font(.caption2)
-                }
-                
-                VStack(spacing: 4) {
-                    Image(systemName: "arrow.down")
-                    Text("Swipe Down")
-                        .font(.caption2)
-                }
-
-                VStack(spacing: 4) {
-                    Image(systemName: "hand.tap.fill")
-                    Text("Hold to Drop")
-                        .font(.caption2)
-                }
-            }
-            .foregroundColor(.white.opacity(0.6))
-            .padding(.bottom, 8)
-        }
+        .frame(minWidth: 64)
+        .padding(.vertical, 6).padding(.horizontal, 8)
+        .background(RoundedRectangle(cornerRadius: 8).fill(Color.white.opacity(0.07)))
     }
 }

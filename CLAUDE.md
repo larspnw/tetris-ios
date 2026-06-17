@@ -1,134 +1,53 @@
-# Wheel Strategy App
+# Tetris for iOS
 
-Options wheel strategy tracker with position management, price lookups, and action recommendations.
+A SwiftUI Tetris game following the modern Tetris Guideline (SRS, 7-bag, hold, ghost,
+lock delay, T-spin scoring), with Sprint/Ultra/Zen modes, a leaderboard, and an
+inspirational-quotes feature.
 
-## Workflow Orchestration
+## Architecture
+- **`Engine/`** — pure-Swift game core (NO SwiftUI/UIKit imports). Deterministic and
+  fully unit-testable on macOS. Time is driven by explicit `advance(dt:)` and randomness
+  is injected, so the same inputs always produce the same result.
+- **`Models/` `ViewModels/` `Views/` `Managers/`** — the SwiftUI app layer. The view
+  model wraps the engine and drives it from a display timer; views render engine state.
+- **`EngineTests/`** — XCTest unit tests for the engine (target ≥80% line coverage).
+- **`Package.swift`** — SPM manifest so the engine + tests run via `swift test` without a
+  simulator. The Xcode app target compiles the same `Engine/` files for iOS.
 
-### 1. Plan Mode Default
-- Enter plan mode for ANY non-trivial task (3+ steps or architectural decisions)
-- If something goes sideways, STOP and re-plan immediately - don't keep pushing
-- Use plan mode for verification steps, not just building
-- Write detailed specs upfront to reduce ambiguity
+## Golden rules
+- **Keep the engine SwiftUI-free.** Color/haptic/sound mapping lives in the app layer only.
+- **Engine stays deterministic.** No `Date()`, no global RNG, no timers inside `Engine/`.
+  Pass time deltas and an RNG in. This is what makes the tests fast and reliable.
+- **Test-first for engine logic.** Rotations, kicks, scoring, and mode rules get a test
+  before or alongside the implementation.
+- **No regressions to existing interactions.** Before adding a gesture/handler, verify it
+  doesn't break tap-to-rotate, swipe-to-move, etc.
+- **Commit per logical change.** Bump `CFBundleVersion` via `scripts/increment-build.sh`
+  (runs as a build phase) and keep the version visible on the menu screen.
 
-### 2. Subagent Strategy to keep main context window clean
-- Offload research, exploration, and parallel analysis to subagents
-- For complex problems, throw more compute at it via subagents
-- One task per subagent for focused execution
-
-### 3. Self-Improvement Loop
-- After ANY correction from the user: update 'tasks/lessons.md' with the pattern
-- Write rules for yourself that prevent the same mistake
-- Ruthlessly iterate on these lessons until mistake rate drops
-- Review lessons at session start for relevant project
-
-### 4. Verification Before Done
-- Never mark a task complete without proving it works
-- Diff behavior between main and your changes when relevant
-- Ask yourself: "Would a staff engineer approve this?"
-- Run tests, check logs, demonstrate correctness
-
-### 5. Demand Elegance (Balanced)
-- For non-trivial changes: pause and ask "is there a more elegant way?"
-- If a fix feels hacky: "Knowing everything I know now, implement the elegant solution"
-- Skip this for simple, obvious fixes - don't over-engineer
-- Challenge your own work before presenting it
-
-### 6. Autonomous Bug Fixing
-- When given a bug report: just fix it. Don't ask for hand-holding
-- Point at logs, errors, failing tests -> then resolve them
-- Zero context switching required from the user
-- Go fix failing CI tests without being told how
-
-## Task Management
-1. **Plan First**: Write plan to 'tasks/todo.md' with checkable items
-2. **Verify Plan**: Check in before starting implementation
-3. **Track Progress**: Mark items complete as you go
-4. **Explain Changes**: High-level summary at each step
-5. **Document Results**: Add review to 'tasks/todo.md'
-6. **Capture Lessons**: Update 'tasks/lessons.md' after corrections
-
-## Core Principles
-- **Simplicity First**: Make every change as simple as possible. Impact minimal code.
-- **No Laziness**: Find root causes. No temporary fixes. Senior developer standards.
-- **Minimal Impact**: Changes should only touch what's necessary. Avoid introducing bugs.
-- **No Regressions**: Every change must preserve all existing functionality. Before adding gestures, event handlers, or UI interactions, verify that new code does not interfere with or block existing behaviors (e.g., adding a long press must not break tap-to-rotate). Test all existing interactions after any change.
-
-## Other
-- ensure every code update increases the patch version and the version is visible in the web app
-
-## Stack
-- **Backend:** Python 3.11+, FastAPI, SQLAlchemy, SQLite
-- **Frontend:** React, Vite, Tailwind CSS (mobile-first)
-- **CLI:** Typer + Rich
-- **Pricing:** yfinance
-- **Hosting:** Render (web service + persistent disk)
-
-## Project Structure
-```
-wheel/
-├── api/                 # FastAPI backend
-│   ├── main.py          # App entry, serves API + static frontend
-│   ├── deps.py          # Dependency injection
-│   ├── schemas.py       # Pydantic models
-│   └── routes/          # Endpoint handlers
-├── cli/                 # Typer CLI
-│   └── commands/        # Subcommands
-├── core/                # Business logic
-│   ├── pricing.py       # yfinance integration
-│   ├── recommendations.py  # Action rules engine
-│   └── prompt_generator.py # Grok prompt builder
-├── db/                  # Database layer
-│   ├── database.py      # SQLAlchemy setup
-│   ├── models.py        # ORM models
-│   └── repository.py    # CRUD operations
-├── web/                 # React frontend
-│   └── src/
-│       ├── pages/       # Dashboard, Positions, Holdings, Watchlist, Screening
-│       └── components/  # Shared UI components
-├── config.yaml          # Configurable thresholds
-├── render.yaml          # Render deployment blueprint
-└── PRD.md               # Full product requirements
-```
-
-## API Endpoints
-```
-GET/POST       /positions
-PUT            /positions/{id}
-POST           /positions/{id}/close
-POST           /positions/{id}/assign
-
-GET/POST/PUT/DELETE  /holdings
-GET/POST/PUT/DELETE  /watchlist
-
-GET            /screening/prompt
-PUT            /screening/template
-GET            /dashboard
-```
-
-## CLI Commands
+## Build & test
 ```bash
-wheel add                    # Interactive position entry
-wheel close <id> --price X   # Close position
-wheel assign <id>            # Mark assigned, create holding
-wheel status [--all] [--ticker X]  # Show positions + recommendations
-wheel prompt [--copy]        # Generate Grok screening prompt
-wheel refresh                # Update prices
-wheel watch add|list|remove  # Manage watchlist
+# Engine unit tests + coverage (macOS, no simulator needed)
+swift test --enable-code-coverage
+
+# App build (needs an iOS simulator runtime installed)
+xcodebuild -scheme Tetris -destination 'platform=iOS Simulator,name=iPhone 16' build
+
+# Full test run incl. XCUITest E2E
+xcodebuild test -scheme Tetris -destination 'platform=iOS Simulator,name=iPhone 16' \
+  -enableCodeCoverage YES
 ```
 
-## Key Patterns
-- **Recommendations:** Evaluated in priority order (ROLL → BUY TO CLOSE → REVIEW → HOLD)
-- **Thresholds:** All in `config.yaml`, not hardcoded
-- **Type hints:** Use `from __future__ import annotations` for Python 3.9 compat
-- **Frontend:** TanStack Query for data fetching, mobile-first responsive
+## Tetris specifics (the rules the engine enforces)
+- 10x40 internal matrix (20 visible + buffer rows above).
+- SRS rotation with the JLSTZ and I wall-kick tables. Kick tables are stored in the
+  standard y-UP convention and negated when applied to the y-DOWN board grid.
+- 7-bag randomizer; hold (once per piece); ghost piece; hard drop; lock delay 0.5s with
+  move-reset capped at 15.
+- Scoring: 100/300/500/800 base (×level), T-spins, back-to-back ×1.5, combo, perfect clear,
+  soft-drop 1/cell, hard-drop 2/cell. Gravity = (0.8 − (level−1)·0.007)^(level−1) sec/line.
+- Modes: Sprint (40 lines, time = score), Ultra (120s score attack), Zen (endless, no top-out).
 
-## Running Locally
-```bash
-./setup.sh                           # One-time setup
-source venv/bin/activate
-uvicorn api.main:app --reload        # API on :8000
-cd web && npm run dev                # Frontend on :5173
-```
-
-## Deployment
-Push to GitHub → Render auto-deploys via `render.yaml` blueprint.
+## Real-world caveat
+"Tetris" and the Korobeiniki theme are trademarks of The Tetris Company. Fine for personal
+use; a public App Store release would require an original name and original music.
