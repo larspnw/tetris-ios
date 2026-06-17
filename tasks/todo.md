@@ -12,9 +12,15 @@ with Sprint/Ultra/Zen modes, a leaderboard, and an inspirational-quotes feature.
 - **Quotes** on app launch and between games (game-over screen). Sources: Stoic
   philosophers (Marcus Aurelius, Seneca, Epictetus), Brad Stulberg, Naval Ravikant.
 
-## Known blocker
-- Xcode license not accepted → `git`, `xcodebuild`, and `swift` are all gated.
-  Run `sudo xcodebuild -license accept` once to unblock build/test/commit.
+## Environment notes
+- Xcode license: ACCEPTED (git/xcodebuild/swift all work).
+- iOS Simulator *runtime* could not be downloaded (restricted network), so the app and
+  XCUITest E2E cannot be *run* here. Everything still compiles/links:
+  - Engine unit tests run on macOS via `swift test` (65 tests, 96% coverage).
+  - App + UI-test target verified with `xcodebuild build` and `build-for-testing`
+    (BUILD SUCCEEDED / TEST BUILD SUCCEEDED).
+  - To run the app + E2E once a runtime is installed:
+    `xcodebuild test -scheme Tetris -destination 'platform=iOS Simulator,name=iPhone 16'`
 
 ---
 
@@ -90,4 +96,20 @@ with Sprint/Ultra/Zen modes, a leaderboard, and an inspirational-quotes feature.
   a public App Store release would need an original name + original music.
 
 ## Review log
-- (to be filled in as phases complete)
+- **Phase 0 (DONE):** Replaced wrong-project CLAUDE.md. Added SPM manifest + XCTest engine
+  suite and an XCUITest target with a shared scheme.
+- **Phase 1 (DONE):** SwiftUI-free engine — SRS + full kick tables, 10x40 buffer, lock delay
+  (0.5s / 15-reset cap), ghost, hold, hard drop, 5-piece preview. App rewired to the engine.
+- **Phase 2 (DONE):** T-spins, back-to-back, combo, perfect clear, soft/hard-drop points,
+  Tetris Worlds gravity curve. Old timing-bonus removed.
+- **Phase 3 (DONE):** Haptics (prepare()'d), synthesized sound effects, screen shake on
+  hard drop / Tetris. (Background music intentionally omitted — trademark on Korobeiniki.)
+- **Phase 4 (DONE):** Sprint/Ultra/Zen modes, mode-select screen, leaderboard (score/time +
+  date, per-mode tabs, capped & persisted), quotes on launch + between games.
+- **Phase 5 (DONE):** Configurable controls (Swipe/Drag/Buttons), tunable DAS/ARR, distinct
+  hard-drop gesture, thumb-zone on-screen pad, ≥44pt targets.
+- **Tests:** 65 engine unit tests passing, 96.0% line coverage (target was 80%). XCUITest
+  E2E written + compiling; needs a simulator runtime to execute.
+- **Remaining / nice-to-have:** richer line-clear animation (currently shake + haptic only);
+  run the E2E suite once a runtime is available; optional Xcode unit-test target mirroring
+  the SPM tests (engine coverage already met via `swift test`).
