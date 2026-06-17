@@ -14,6 +14,9 @@ final class GameViewModel: NSObject, ObservableObject {
     @Published private(set) var endQuote: Quote = QuoteBook.random()
     /// Rank of the just-finished run within its mode, if it was recorded.
     @Published private(set) var lastRank: Int?
+    /// Bumped to trigger a screen-shake; `impactStrength` carries its magnitude (0...1).
+    @Published private(set) var impactToken = 0
+    private(set) var impactStrength: CGFloat = 0
 
     private let settings = SettingsManager.shared
     private var displayLink: CADisplayLink?
@@ -93,6 +96,7 @@ final class GameViewModel: NSObject, ObservableObject {
             if outcome.linesCleared > 0 {
                 Haptics.shared.lineClear(outcome.linesCleared)
                 SoundManager.shared.lineClear(outcome.linesCleared)
+                impact(outcome.linesCleared >= 4 ? 1.0 : 0.4)
             } else {
                 Haptics.shared.lock(); SoundManager.shared.lock()
             }
@@ -161,8 +165,14 @@ final class GameViewModel: NSObject, ObservableObject {
         if engine.rotate(clockwise: clockwise) { Haptics.shared.rotate(); SoundManager.shared.rotate() }
     }
 
+    private func impact(_ strength: CGFloat) {
+        impactStrength = strength
+        impactToken &+= 1
+    }
+
     func hardDrop() {
         Haptics.shared.hardDrop(); SoundManager.shared.hardDrop()
+        impact(0.5)
         engine.hardDrop()
         processEvents()
         frame &+= 1

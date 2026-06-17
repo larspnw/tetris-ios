@@ -8,6 +8,7 @@ struct ContentView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var showSettings = false
     @State private var appliedCells = 0
+    @State private var shake: CGFloat = 0
 
     init(mode: GameMode) {
         self.mode = mode
@@ -30,6 +31,14 @@ struct ContentView: View {
                     controls
                 }
                 .padding(.vertical, 8)
+                .offset(y: shake)
+                .onChange(of: vm.impactToken) { _ in
+                    let magnitude = 7 * vm.impactStrength
+                    withAnimation(.interpolatingSpring(stiffness: 600, damping: 8)) { shake = magnitude }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.06) {
+                        withAnimation(.interpolatingSpring(stiffness: 400, damping: 12)) { shake = 0 }
+                    }
+                }
 
                 if vm.engine.status == .paused { pauseOverlay }
                 if vm.engine.status == .gameOver || vm.engine.status == .finished { endOverlay }
