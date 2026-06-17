@@ -42,18 +42,20 @@ final class TetrisUITests: XCTestCase {
         _ = app.staticTexts["Choose a Mode"].waitForExistence(timeout: 5)
         app.staticTexts["Zen"].firstMatch.tap()
         XCTAssertTrue(app.staticTexts["SCORE"].waitForExistence(timeout: 5))
-        app.buttons["pause.circle.fill"].firstMatch.tap()
+        app.buttons["pauseToggle"].tap()
         XCTAssertTrue(app.staticTexts["PAUSED"].waitForExistence(timeout: 3))
         app.buttons["Resume"].tap()
-        XCTAssertFalse(app.staticTexts["PAUSED"].exists)
+        XCTAssertFalse(app.staticTexts["PAUSED"].waitForExistence(timeout: 1))
     }
 
     /// The leaderboard opens and shows its mode tabs.
     func testLeaderboardOpens() {
         let app = launch()
         app.buttons["Leaderboard"].tap()
-        XCTAssertTrue(app.staticTexts["Sprint"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.staticTexts["Ultra"].exists)
-        XCTAssertTrue(app.staticTexts["Zen"].exists)
+        // The mode tabs are a segmented control (buttons), and the nav bar shows the title.
+        XCTAssertTrue(app.navigationBars["Leaderboard"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Sprint"].exists)
+        XCTAssertTrue(app.buttons["Ultra"].exists)
+        XCTAssertTrue(app.buttons["Zen"].exists)
     }
 }

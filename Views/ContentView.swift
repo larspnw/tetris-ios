@@ -67,6 +67,7 @@ struct ContentView: View {
                 Image(systemName: vm.engine.status == .playing ? "pause.circle.fill" : "play.circle.fill")
                     .font(.title2).foregroundColor(.white)
             }
+            .accessibilityIdentifier("pauseToggle")
         }
         .padding(.horizontal)
     }

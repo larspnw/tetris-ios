@@ -52,8 +52,8 @@ final class GameViewModel: NSObject, ObservableObject {
         startLoop()
     }
 
-    func pause() { engine.pause(); stopLoop() }
-    func resume() { guard engine.status == .paused else { return }; engine.resume(); startLoop() }
+    func pause() { engine.pause(); stopLoop(); frame &+= 1 }
+    func resume() { guard engine.status == .paused else { return }; engine.resume(); startLoop(); frame &+= 1 }
 
     func cleanup() { stopLoop() }
 
