@@ -154,6 +154,19 @@ public final class GameEngine {
 
     // MARK: - Inputs
 
+    /// Move the current piece down one cell if possible, awarding 1 soft-drop point.
+    /// Useful for discrete (swipe/tap) soft drops. Returns whether it moved.
+    @discardableResult
+    public func softDropStep() -> Bool {
+        guard status == .playing else { return false }
+        let cand = current.moved(dx: 0, dy: 1)
+        guard !field.collides(cand) else { return false }
+        current = cand
+        score += 1
+        lastActionWasRotation = false
+        return true
+    }
+
     public func setSoftDrop(_ on: Bool) {
         guard status == .playing else { return }
         softDropping = on

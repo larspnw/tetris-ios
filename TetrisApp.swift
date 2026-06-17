@@ -1,24 +1,20 @@
 import SwiftUI
 
-/// Main app entry point
+/// App entry point. A navigation stack rooted at the main menu.
 @main
 struct TetrisApp: App {
-    @State private var showGame = false
-    
     var body: some Scene {
         WindowGroup {
-            ZStack {
-                if showGame {
-                    ContentView()
-                        .preferredColorScheme(.dark)
-                        .transition(.opacity.combined(with: .scale))
-                } else {
-                    MenuView(showGame: $showGame)
-                        .preferredColorScheme(.dark)
-                        .transition(.opacity.combined(with: .scale))
-                }
+            NavigationStack {
+                MenuView()
             }
-            .animation(.easeInOut(duration: 0.3), value: showGame)
+            .preferredColorScheme(.dark)
         }
     }
+}
+
+/// Routes reachable from the menu (modes are navigated via `GameMode` values).
+enum MenuRoute: Hashable {
+    case modeSelect
+    case leaderboard
 }

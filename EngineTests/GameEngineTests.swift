@@ -80,6 +80,15 @@ final class GameEngineTests: XCTestCase {
         XCTAssertEqual(e.piecesPlaced, placed + 1, "should lock after 0.5s on the ground")
     }
 
+    func testSoftDropStepMovesOneCellAndScores() {
+        let e = engine(.zen)
+        e.start()
+        let y0 = e.current.origin.y
+        XCTAssertTrue(e.softDropStep())
+        XCTAssertEqual(e.current.origin.y, y0 + 1)
+        XCTAssertEqual(e.score, 1)
+    }
+
     func testGravityMovesPieceDown() {
         let e = engine(.zen)
         e.start()

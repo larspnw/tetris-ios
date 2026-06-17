@@ -1,81 +1,67 @@
 import Foundation
+import SwiftUI
 
-/// Enum representing different drop speed options
-enum DropSpeed: String, CaseIterable, Identifiable {
-    case slow = "Slow"
-    case normal = "Normal"
-    case fast = "Fast"
-    
+/// Control schemes for touch input (Phase 5).
+enum ControlScheme: String, CaseIterable, Identifiable {
+    case swipe = "Swipe"      // swipe to move/drop, tap to rotate
+    case drag  = "Drag"       // cell-snapped horizontal drag, tap to rotate, swipe up to hold
+    case buttons = "Buttons"  // on-screen D-pad + action buttons
+
     var id: String { rawValue }
-    
-    /// Display name for the speed option
     var displayName: String { rawValue }
-    
-    /// Base multiplier for the fall interval (lower = faster)
-    var speedMultiplier: Double {
+    var detail: String {
         switch self {
-        case .slow: return 1.5    // 1.5x slower than normal
-        case .normal: return 1.0  // Normal speed
-        case .fast: return 0.6    // 0.6x faster than normal
-        }
-    }
-    
-    /// Description of the speed
-    var description: String {
-        switch self {
-        case .slow: return "Relaxed pace"
-        case .normal: return "Classic Tetris"
-        case .fast: return "Quick thinking required"
-        }
-    }
-    
-    /// Icon name for the speed
-    var iconName: String {
-        switch self {
-        case .slow: return "tortoise.fill"
-        case .normal: return "figure.walk"
-        case .fast: return "hare.fill"
+        case .swipe:   return "Swipe to move, tap to rotate, swipe down to hard drop"
+        case .drag:    return "Drag piece across cells, tap to rotate, flick down to drop"
+        case .buttons: return "On-screen controls in the thumb zone"
         }
     }
 }
 
-/// Manages game settings using UserDefaults
-class SettingsManager: ObservableObject {
+/// Persisted user settings. `@Published` so SwiftUI views react and `UserDefaults`-backed
+/// so they survive relaunch.
+final class SettingsManager: ObservableObject {
     static let shared = SettingsManager()
-    
     private let defaults = UserDefaults.standard
-    
+
     private enum Keys {
-        static let dropSpeed = "tetris_dropSpeed"
+        static let hapticsEnabled = "tetris_hapticsEnabled"
+        static let soundEnabled = "tetris_soundEnabled"
+        static let ghostEnabled = "tetris_ghostEnabled"
+        static let controlScheme = "tetris_controlScheme"
+        static let dasMilliseconds = "tetris_dasMilliseconds"
+        static let arrMilliseconds = "tetris_arrMilliseconds"
     }
-    
-    // MARK: - Drop Speed
-    
-    @Published var dropSpeed: DropSpeed {
-        didSet {
-            defaults.set(dropSpeed.rawValue, forKey: Keys.dropSpeed)
-        }
-    }
-    
-    /// Get the base interval multiplier for the current speed setting
-    var speedMultiplier: Double {
-        return dropSpeed.speedMultiplier
-    }
-    
-    // MARK: - Initialization
-    
+
+    @Published var hapticsEnabled: Bool { didSet { defaults.set(hapticsEnabled, forKey: Keys.hapticsEnabled) } }
+    @Published var soundEnabled: Bool { didSet { defaults.set(soundEnabled, forKey: Keys.soundEnabled) } }
+    @Published var ghostEnabled: Bool { didSet { defaults.set(ghostEnabled, forKey: Keys.ghostEnabled) } }
+    @Published var controlScheme: ControlScheme { didSet { defaults.set(controlScheme.rawValue, forKey: Keys.controlScheme) } }
+
+    /// Delayed Auto Shift: ms held before a move repeats. Tunable for skilled play.
+    @Published var dasMilliseconds: Double { didSet { defaults.set(dasMilliseconds, forKey: Keys.dasMilliseconds) } }
+    /// Auto Repeat Rate: ms between repeats once DAS engages.
+    @Published var arrMilliseconds: Double { didSet { defaults.set(arrMilliseconds, forKey: Keys.arrMilliseconds) } }
+
     private init() {
-        if let savedSpeed = defaults.string(forKey: Keys.dropSpeed),
-           let speed = DropSpeed(rawValue: savedSpeed) {
-            self.dropSpeed = speed
-        } else {
-            self.dropSpeed = .normal
+        let d = UserDefaults.standard
+        func boolOrDefault(_ key: String, _ fallback: Bool) -> Bool {
+            d.object(forKey: key) == nil ? fallback : d.bool(forKey: key)
         }
+        hapticsEnabled = boolOrDefault(Keys.hapticsEnabled, true)
+        soundEnabled = boolOrDefault(Keys.soundEnabled, true)
+        ghostEnabled = boolOrDefault(Keys.ghostEnabled, true)
+        controlScheme = ControlScheme(rawValue: d.string(forKey: Keys.controlScheme) ?? "") ?? .swipe
+        dasMilliseconds = (d.object(forKey: Keys.dasMilliseconds) as? Double) ?? 167  // ≈ 10 frames
+        arrMilliseconds = (d.object(forKey: Keys.arrMilliseconds) as? Double) ?? 33   // ≈ 2 frames
     }
-    
-    // MARK: - Reset
-    
+
     func resetToDefaults() {
-        dropSpeed = .normal
+        hapticsEnabled = true
+        soundEnabled = true
+        ghostEnabled = true
+        controlScheme = .swipe
+        dasMilliseconds = 167
+        arrMilliseconds = 33
     }
 }

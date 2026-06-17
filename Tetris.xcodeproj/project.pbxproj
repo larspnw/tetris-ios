@@ -7,12 +7,30 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		C0DE01000000000000000000 /* Engine/TetrominoKind.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DE02000000000000000000 /* Engine/TetrominoKind.swift */; };
+		C0DE01000000000000000001 /* Engine/TetrominoShapes.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DE02000000000000000001 /* Engine/TetrominoShapes.swift */; };
+		C0DE01000000000000000002 /* Engine/SRSKicks.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DE02000000000000000002 /* Engine/SRSKicks.swift */; };
+		C0DE01000000000000000003 /* Engine/Piece.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DE02000000000000000003 /* Engine/Piece.swift */; };
+		C0DE01000000000000000004 /* Engine/Playfield.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DE02000000000000000004 /* Engine/Playfield.swift */; };
+		C0DE01000000000000000005 /* Engine/SevenBag.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DE02000000000000000005 /* Engine/SevenBag.swift */; };
+		C0DE01000000000000000006 /* Engine/Gravity.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DE02000000000000000006 /* Engine/Gravity.swift */; };
+		C0DE01000000000000000007 /* Engine/TSpin.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DE02000000000000000007 /* Engine/TSpin.swift */; };
+		C0DE01000000000000000008 /* Engine/Scoring.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DE02000000000000000008 /* Engine/Scoring.swift */; };
+		C0DE01000000000000000009 /* Engine/GameMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DE02000000000000000009 /* Engine/GameMode.swift */; };
+		C0DE0100000000000000000A /* Engine/GameEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DE0200000000000000000A /* Engine/GameEngine.swift */; };
+		C0DE0100000000000000000B /* Engine/Leaderboard.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DE0200000000000000000B /* Engine/Leaderboard.swift */; };
+		C0DE0100000000000000000C /* Engine/Quotes.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DE0200000000000000000C /* Engine/Quotes.swift */; };
+		C0DE0100000000000000000D /* Views/TetrominoStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DE0200000000000000000D /* Views/TetrominoStyle.swift */; };
+		C0DE0100000000000000000E /* Views/QuoteView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DE0200000000000000000E /* Views/QuoteView.swift */; };
+		C0DE0100000000000000000F /* Views/ControlButtons.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DE0200000000000000000F /* Views/ControlButtons.swift */; };
+		C0DE01000000000000000010 /* Views/ModeSelectView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DE02000000000000000010 /* Views/ModeSelectView.swift */; };
+		C0DE01000000000000000011 /* Views/LeaderboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DE02000000000000000011 /* Views/LeaderboardView.swift */; };
+		C0DE01000000000000000012 /* Managers/Haptics.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DE02000000000000000012 /* Managers/Haptics.swift */; };
+		C0DE01000000000000000013 /* Managers/SoundManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DE02000000000000000013 /* Managers/SoundManager.swift */; };
+		C0DE01000000000000000014 /* Managers/LeaderboardStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DE02000000000000000014 /* Managers/LeaderboardStore.swift */; };
 		ABC000012345678901234567 /* TetrisApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABC000002345678901234567 /* TetrisApp.swift */; };
 		ABC000022345678901234567 /* Views/ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABC000003345678901234567 /* Views/ContentView.swift */; };
 		ABC000032345678901234567 /* ViewModels/GameViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABC000004345678901234567 /* ViewModels/GameViewModel.swift */; };
-		ABC000042345678901234567 /* Models/GameModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABC000005345678901234567 /* Models/GameModels.swift */; };
-		ABC000052345678901234567 /* Models/Board.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABC000006345678901234567 /* Models/Board.swift */; };
-		ABC000062345678901234567 /* Models/TetrominoType.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABC000007345678901234567 /* Models/TetrominoType.swift */; };
 		ABC000072345678901234567 /* Views/GameComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABC000008345678901234567 /* Views/GameComponents.swift */; };
 		ABC000182345678901234567 /* Views/MenuView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABC000193456789012345678 /* Views/MenuView.swift */; };
 		ABC0001A2345678901234567 /* Managers/StatsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABC0001B2345678901234567 /* Managers/StatsManager.swift */; };
@@ -23,12 +41,30 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		C0DE02000000000000000000 /* Engine/TetrominoKind.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Engine/TetrominoKind.swift; sourceTree = "<group>"; };
+		C0DE02000000000000000001 /* Engine/TetrominoShapes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Engine/TetrominoShapes.swift; sourceTree = "<group>"; };
+		C0DE02000000000000000002 /* Engine/SRSKicks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Engine/SRSKicks.swift; sourceTree = "<group>"; };
+		C0DE02000000000000000003 /* Engine/Piece.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Engine/Piece.swift; sourceTree = "<group>"; };
+		C0DE02000000000000000004 /* Engine/Playfield.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Engine/Playfield.swift; sourceTree = "<group>"; };
+		C0DE02000000000000000005 /* Engine/SevenBag.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Engine/SevenBag.swift; sourceTree = "<group>"; };
+		C0DE02000000000000000006 /* Engine/Gravity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Engine/Gravity.swift; sourceTree = "<group>"; };
+		C0DE02000000000000000007 /* Engine/TSpin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Engine/TSpin.swift; sourceTree = "<group>"; };
+		C0DE02000000000000000008 /* Engine/Scoring.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Engine/Scoring.swift; sourceTree = "<group>"; };
+		C0DE02000000000000000009 /* Engine/GameMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Engine/GameMode.swift; sourceTree = "<group>"; };
+		C0DE0200000000000000000A /* Engine/GameEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Engine/GameEngine.swift; sourceTree = "<group>"; };
+		C0DE0200000000000000000B /* Engine/Leaderboard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Engine/Leaderboard.swift; sourceTree = "<group>"; };
+		C0DE0200000000000000000C /* Engine/Quotes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Engine/Quotes.swift; sourceTree = "<group>"; };
+		C0DE0200000000000000000D /* Views/TetrominoStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/TetrominoStyle.swift; sourceTree = "<group>"; };
+		C0DE0200000000000000000E /* Views/QuoteView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/QuoteView.swift; sourceTree = "<group>"; };
+		C0DE0200000000000000000F /* Views/ControlButtons.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/ControlButtons.swift; sourceTree = "<group>"; };
+		C0DE02000000000000000010 /* Views/ModeSelectView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/ModeSelectView.swift; sourceTree = "<group>"; };
+		C0DE02000000000000000011 /* Views/LeaderboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/LeaderboardView.swift; sourceTree = "<group>"; };
+		C0DE02000000000000000012 /* Managers/Haptics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Managers/Haptics.swift; sourceTree = "<group>"; };
+		C0DE02000000000000000013 /* Managers/SoundManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Managers/SoundManager.swift; sourceTree = "<group>"; };
+		C0DE02000000000000000014 /* Managers/LeaderboardStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Managers/LeaderboardStore.swift; sourceTree = "<group>"; };
 		ABC000002345678901234567 /* TetrisApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TetrisApp.swift; sourceTree = "<group>"; };
 		ABC000003345678901234567 /* Views/ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/ContentView.swift; sourceTree = "<group>"; };
 		ABC000004345678901234567 /* ViewModels/GameViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewModels/GameViewModel.swift; sourceTree = "<group>"; };
-		ABC000005345678901234567 /* Models/GameModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models/GameModels.swift; sourceTree = "<group>"; };
-		ABC000006345678901234567 /* Models/Board.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models/Board.swift; sourceTree = "<group>"; };
-		ABC000007345678901234567 /* Models/TetrominoType.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models/TetrominoType.swift; sourceTree = "<group>"; };
 		ABC000008345678901234567 /* Views/GameComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/GameComponents.swift; sourceTree = "<group>"; };
 		ABC000092345678901234567 /* Tetris.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Tetris.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		ABC0000A2345678901234567 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -54,14 +90,32 @@
 		ABC0000C2345678901234567 = {
 			isa = PBXGroup;
 			children = (
+				C0DE02000000000000000000 /* Engine/TetrominoKind.swift */,
+				C0DE02000000000000000001 /* Engine/TetrominoShapes.swift */,
+				C0DE02000000000000000002 /* Engine/SRSKicks.swift */,
+				C0DE02000000000000000003 /* Engine/Piece.swift */,
+				C0DE02000000000000000004 /* Engine/Playfield.swift */,
+				C0DE02000000000000000005 /* Engine/SevenBag.swift */,
+				C0DE02000000000000000006 /* Engine/Gravity.swift */,
+				C0DE02000000000000000007 /* Engine/TSpin.swift */,
+				C0DE02000000000000000008 /* Engine/Scoring.swift */,
+				C0DE02000000000000000009 /* Engine/GameMode.swift */,
+				C0DE0200000000000000000A /* Engine/GameEngine.swift */,
+				C0DE0200000000000000000B /* Engine/Leaderboard.swift */,
+				C0DE0200000000000000000C /* Engine/Quotes.swift */,
+				C0DE0200000000000000000D /* Views/TetrominoStyle.swift */,
+				C0DE0200000000000000000E /* Views/QuoteView.swift */,
+				C0DE0200000000000000000F /* Views/ControlButtons.swift */,
+				C0DE02000000000000000010 /* Views/ModeSelectView.swift */,
+				C0DE02000000000000000011 /* Views/LeaderboardView.swift */,
+				C0DE02000000000000000012 /* Managers/Haptics.swift */,
+				C0DE02000000000000000013 /* Managers/SoundManager.swift */,
+				C0DE02000000000000000014 /* Managers/LeaderboardStore.swift */,
 				ABC000002345678901234567 /* TetrisApp.swift */,
 				ABC000003345678901234567 /* Views/ContentView.swift */,
 				ABC000008345678901234567 /* Views/GameComponents.swift */,
 				ABC000193456789012345678 /* Views/MenuView.swift */,
 				ABC000004345678901234567 /* ViewModels/GameViewModel.swift */,
-				ABC000005345678901234567 /* Models/GameModels.swift */,
-				ABC000006345678901234567 /* Models/Board.swift */,
-				ABC000007345678901234567 /* Models/TetrominoType.swift */,
 				ABC0001B2345678901234567 /* Managers/StatsManager.swift */,
 				ABC0001E2345678901234567 /* Managers/SettingsManager.swift */,
 				ABC0001F2345678901234567 /* Views/SettingsView.swift */,
@@ -173,12 +227,30 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C0DE01000000000000000000 /* Engine/TetrominoKind.swift in Sources */,
+				C0DE01000000000000000001 /* Engine/TetrominoShapes.swift in Sources */,
+				C0DE01000000000000000002 /* Engine/SRSKicks.swift in Sources */,
+				C0DE01000000000000000003 /* Engine/Piece.swift in Sources */,
+				C0DE01000000000000000004 /* Engine/Playfield.swift in Sources */,
+				C0DE01000000000000000005 /* Engine/SevenBag.swift in Sources */,
+				C0DE01000000000000000006 /* Engine/Gravity.swift in Sources */,
+				C0DE01000000000000000007 /* Engine/TSpin.swift in Sources */,
+				C0DE01000000000000000008 /* Engine/Scoring.swift in Sources */,
+				C0DE01000000000000000009 /* Engine/GameMode.swift in Sources */,
+				C0DE0100000000000000000A /* Engine/GameEngine.swift in Sources */,
+				C0DE0100000000000000000B /* Engine/Leaderboard.swift in Sources */,
+				C0DE0100000000000000000C /* Engine/Quotes.swift in Sources */,
+				C0DE0100000000000000000D /* Views/TetrominoStyle.swift in Sources */,
+				C0DE0100000000000000000E /* Views/QuoteView.swift in Sources */,
+				C0DE0100000000000000000F /* Views/ControlButtons.swift in Sources */,
+				C0DE01000000000000000010 /* Views/ModeSelectView.swift in Sources */,
+				C0DE01000000000000000011 /* Views/LeaderboardView.swift in Sources */,
+				C0DE01000000000000000012 /* Managers/Haptics.swift in Sources */,
+				C0DE01000000000000000013 /* Managers/SoundManager.swift in Sources */,
+				C0DE01000000000000000014 /* Managers/LeaderboardStore.swift in Sources */,
 				ABC000012345678901234567 /* TetrisApp.swift in Sources */,
 				ABC000022345678901234567 /* Views/ContentView.swift in Sources */,
 				ABC000032345678901234567 /* ViewModels/GameViewModel.swift in Sources */,
-				ABC000042345678901234567 /* Models/GameModels.swift in Sources */,
-				ABC000052345678901234567 /* Models/Board.swift in Sources */,
-				ABC000062345678901234567 /* Models/TetrominoType.swift in Sources */,
 				ABC000072345678901234567 /* Views/GameComponents.swift in Sources */,
 				ABC000182345678901234567 /* Views/MenuView.swift in Sources */,
 				ABC0001A2345678901234567 /* Managers/StatsManager.swift in Sources */,

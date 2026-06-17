@@ -1,249 +1,235 @@
 import SwiftUI
 
-/// Main game view containing the board, score, and controls
+/// The in-game screen for a chosen mode.
 struct ContentView: View {
-    @StateObject private var viewModel = GameViewModel()
+    let mode: GameMode
+    @StateObject private var vm: GameViewModel
+    @ObservedObject private var settings = SettingsManager.shared
     @Environment(\.dismiss) private var dismiss
-    
-    // Gesture state
-    @State private var dragOffset: CGSize = .zero
     @State private var showSettings = false
-    @State private var touchDownTime: Date?
-    @State private var fastDropWorkItem: DispatchWorkItem?
+    @State private var appliedCells = 0
 
-    // Configuration
-    private let swipeThreshold: CGFloat = 20
-    private let longPressThreshold: TimeInterval = 0.3
-    
-    // Board dimensions
-    private let boardWidth = GameConstants.boardWidth
-    private let boardHeight = GameConstants.boardHeight
-    private let cellSpacing: CGFloat = 1
-    private let boardPadding: CGFloat = 4
-    
-    /// Calculate the optimal cell size to fit the board within available space
-    private func calculateCellSize(availableHeight: CGFloat) -> CGFloat {
-        // Calculate space needed for non-board elements (approximate)
-        let headerHeight: CGFloat = 120  // Top bar + stats
-        let controlsHeight: CGFloat = 80 // Controls hint + padding
-        let safeAreaPadding: CGFloat = 60 // Extra padding for safe areas
-        
-        let availableForBoard = availableHeight - headerHeight - controlsHeight - safeAreaPadding
-        
-        // Calculate cell size: (available height - spacing - padding) / number of rows
-        let totalSpacing = CGFloat(boardHeight - 1) * cellSpacing
-        let totalPadding = boardPadding * 2
-        let maxCellSize = (availableForBoard - totalSpacing - totalPadding) / CGFloat(boardHeight)
-        
-        // Also consider width constraint
-        let screenWidth = UIScreen.main.bounds.width - 32 // Side padding
-        let maxCellSizeFromWidth = (screenWidth - totalSpacing - totalPadding) / CGFloat(boardWidth)
-        
-        // Return the smaller of the two, with a reasonable min/max
-        return min(max(min(maxCellSize, maxCellSizeFromWidth), 14), 32)
+    init(mode: GameMode) {
+        self.mode = mode
+        _vm = StateObject(wrappedValue: GameViewModel(mode: mode))
     }
-    
+
+    private let tapThreshold: CGFloat = 12
+    private let swipeThreshold: CGFloat = 24
+
     var body: some View {
-        GeometryReader { geometry in
-            let cellSize = calculateCellSize(availableHeight: geometry.size.height)
-            
+        GeometryReader { geo in
+            let cell = cellSize(for: geo.size)
             ZStack {
-                // Background
-                Color.black
-                    .ignoresSafeArea()
-                
-                VStack(spacing: 12) {
-                    // Header with title, back button, and pause button
-                    HStack {
-                        Button(action: {
-                            viewModel.cleanup()
-                            dismiss()
-                        }) {
-                            Image(systemName: "chevron.left")
-                                .font(.title2)
-                                .foregroundColor(.white)
-                                .padding(8)
-                                .background(
-                                    Circle()
-                                        .fill(Color.gray.opacity(0.3))
-                                )
-                        }
-                        
-                        Text("TETRIS")
-                            .font(.system(.title, design: .rounded))
-                            .fontWeight(.bold)
-                            .foregroundColor(.white)
-                        
-                        Spacer()
-                        
-                        // Settings button
-                        Button(action: {
-                            viewModel.pauseGame()
-                            showSettings = true
-                        }) {
-                            Image(systemName: "gearshape.fill")
-                                .font(.title3)
-                                .foregroundColor(.white)
-                                .padding(8)
-                        }
-                        
-                        // Pause/Play button
-                        Button(action: {
-                            viewModel.togglePause()
-                        }) {
-                            Image(systemName: viewModel.gameState == .playing ? "pause.circle.fill" : "play.circle.fill")
-                                .font(.title2)
-                                .foregroundColor(.white)
-                        }
-                    }
-                    .padding(.horizontal)
-                    
-                    // Score, time, and info row
-                    HStack(spacing: 12) {
-                        VStack(spacing: 8) {
-                            ScoreView(title: "SCORE", value: "\(viewModel.score)")
-                            ScoreView(title: "TIME", value: viewModel.formattedSessionTime())
-                        }
-                        
-                        Spacer()
-                        
-                        // Next piece preview
-                        VStack(spacing: 4) {
-                            Text("NEXT")
-                                .font(.caption)
-                                .fontWeight(.medium)
-                                .foregroundColor(.secondary)
-                            
-                            NextPieceView(
-                                blocks: viewModel.getNextPieceBlocks(),
-                                color: viewModel.nextPieceColor,
-                                cellSize: max(cellSize * 0.55, 14)
-                            )
-                        }
-                        
-                        Spacer()
-                        
-                        VStack(spacing: 8) {
-                            ScoreView(title: "LEVEL", value: "\(viewModel.level)")
-                            ScoreView(title: "LINES", value: "\(viewModel.linesCleared)")
-                        }
-                    }
-                    .padding(.horizontal)
-                    
-                    // Game board with gesture handling
-                    GameBoardView(
-                        grid: viewModel.getDisplayGrid(),
-                        cellSize: cellSize,
-                        spacing: cellSpacing,
-                        padding: boardPadding
-                    )
-                    .gesture(
-                        DragGesture(minimumDistance: 0)
-                            .onChanged { value in
-                                if touchDownTime == nil {
-                                    touchDownTime = Date()
-                                    // Schedule fast drop after hold threshold
-                                    let workItem = DispatchWorkItem { [self] in
-                                        viewModel.setFastDrop(true)
-                                    }
-                                    fastDropWorkItem = workItem
-                                    DispatchQueue.main.asyncAfter(deadline: .now() + longPressThreshold, execute: workItem)
-                                }
-                                dragOffset = value.translation
-                            }
-                            .onEnded { value in
-                                // Cancel pending fast drop activation
-                                fastDropWorkItem?.cancel()
-                                fastDropWorkItem = nil
-                                // Deactivate fast drop if it was active
-                                viewModel.setFastDrop(false)
-
-                                let horizontal = value.translation.width
-                                let vertical = value.translation.height
-                                let distance = max(abs(horizontal), abs(vertical))
-
-                                if distance < swipeThreshold {
-                                    // Minimal movement — treat as tap to rotate
-                                    viewModel.rotatePiece()
-                                } else {
-                                    handleSwipe(value: value)
-                                }
-
-                                touchDownTime = nil
-                                dragOffset = .zero
-                            }
-                    )
-                    
-                    // Controls hint
-                    if viewModel.gameState == .playing {
-                        ControlsHintView()
-                            .padding(.bottom, 8)
-                    }
-                    
-                    Spacer(minLength: 8)
+                Color.black.ignoresSafeArea()
+                VStack(spacing: 10) {
+                    topBar
+                    statsRow
+                    boardRow(cell: cell)
+                    Spacer(minLength: 4)
+                    controls
                 }
-                .padding(.vertical)
-                
-                // Pause overlay
-                if viewModel.gameState == .paused {
-                    PauseOverlay(
-                        onResume: { viewModel.resumeGame() },
-                        onRestart: { viewModel.startGame() }
-                    )
-                }
-                
-                // Game over overlay
-                if viewModel.gameState == .gameOver {
-                    GameOverOverlay(
-                        score: viewModel.score,
-                        level: viewModel.level,
-                        linesCleared: viewModel.linesCleared,
-                        onRestart: { viewModel.startGame() }
-                    )
-                }
+                .padding(.vertical, 8)
+
+                if vm.engine.status == .paused { pauseOverlay }
+                if vm.engine.status == .gameOver || vm.engine.status == .finished { endOverlay }
             }
         }
-        .onAppear {
-            // Start the game when view appears
-            viewModel.startGame()
-        }
-        .onDisappear {
-            // Clean up and save stats when leaving
-            viewModel.cleanup()
-        }
-        .sheet(isPresented: $showSettings, onDismiss: {
-            // Resume game when settings is dismissed (if it was playing)
-            if viewModel.gameState == .paused {
-                viewModel.resumeGame()
+        .onAppear { vm.startGame() }
+        .onDisappear { vm.cleanup() }
+        .sheet(isPresented: $showSettings, onDismiss: { vm.resume() }) { SettingsView() }
+    }
+
+    // MARK: - Layout pieces
+
+    private var topBar: some View {
+        HStack {
+            Button { vm.cleanup(); dismiss() } label: {
+                Image(systemName: "chevron.left").font(.title2).foregroundColor(.white)
+                    .padding(8).background(Circle().fill(Color.white.opacity(0.12)))
             }
-        }) {
-            SettingsView()
+            Spacer()
+            Text(mode.title.uppercased()).font(.system(.title3, design: .rounded)).bold().foregroundColor(.white)
+            Spacer()
+            Button { vm.pause(); showSettings = true } label: {
+                Image(systemName: "gearshape.fill").font(.title3).foregroundColor(.white).padding(8)
+            }
+            Button { vm.engine.status == .playing ? vm.pause() : vm.resume() } label: {
+                Image(systemName: vm.engine.status == .playing ? "pause.circle.fill" : "play.circle.fill")
+                    .font(.title2).foregroundColor(.white)
+            }
+        }
+        .padding(.horizontal)
+    }
+
+    private var statsRow: some View {
+        HStack(spacing: 8) {
+            StatChip(title: "SCORE", value: "\(vm.engine.score)")
+            StatChip(title: "LEVEL", value: "\(vm.engine.level)")
+            StatChip(title: "LINES", value: "\(vm.engine.lines)")
+            StatChip(title: goalTitle, value: goalValue)
+        }
+        .padding(.horizontal)
+    }
+
+    private var goalTitle: String {
+        switch mode {
+        case .sprint: return "LEFT"
+        case .ultra:  return "TIME"
+        case .zen:    return "TIME"
         }
     }
-    
-    // MARK: - Gesture Handling
-    
-    private func handleSwipe(value: DragGesture.Value) {
-        let horizontal = value.translation.width
-        let vertical = value.translation.height
-        
-        // Determine if horizontal or vertical swipe was dominant
-        if abs(horizontal) > abs(vertical) {
-            // Horizontal swipe - move left or right
-            if horizontal > swipeThreshold {
-                viewModel.movePieceRight()
-            } else if horizontal < -swipeThreshold {
-                viewModel.movePieceLeft()
+    private var goalValue: String {
+        switch mode {
+        case .sprint: return "\(vm.engine.linesRemaining ?? 0)"
+        case .ultra:  return timeString(vm.engine.timeRemaining ?? 0)
+        case .zen:    return timeString(vm.engine.elapsedTime)
+        }
+    }
+
+    private func boardRow(cell: CGFloat) -> some View {
+        HStack(alignment: .top, spacing: 8) {
+            VStack(spacing: 6) {
+                Text("HOLD").font(.caption2).foregroundColor(.secondary)
+                PiecePreview(kind: vm.engine.holdKind, cellSize: cell * 0.5, dimmed: true)
             }
-        } else {
-            // Vertical swipe - soft drop
-            if vertical > swipeThreshold {
-                viewModel.movePieceDown()
+            GameBoardView(grid: BoardRenderer.grid(vm.engine, ghostOn: settings.ghostEnabled), cellSize: cell)
+                .gesture(boardGesture(cell: cell))
+            VStack(spacing: 6) {
+                Text("NEXT").font(.caption2).foregroundColor(.secondary)
+                ForEach(Array(vm.engine.nextQueue().prefix(5).enumerated()), id: \.offset) { _, k in
+                    PiecePreview(kind: k, cellSize: cell * 0.42)
+                }
             }
+        }
+        .padding(.horizontal, 6)
+    }
+
+    @ViewBuilder private var controls: some View {
+        if vm.engine.status == .playing {
+            if settings.controlScheme == .buttons {
+                ControlPad(vm: vm).padding(.bottom, 8)
+            } else {
+                Text(settings.controlScheme == .drag
+                     ? "Drag to move · tap to rotate · flick down to drop · swipe up to hold"
+                     : "Swipe to move · tap to rotate · swipe down to drop · up to hold")
+                    .font(.caption2).foregroundColor(.white.opacity(0.5))
+                    .multilineTextAlignment(.center).padding(.bottom, 8)
+            }
+        }
+    }
+
+    // MARK: - Gestures (swipe & drag schemes)
+
+    private func boardGesture(cell: CGFloat) -> some Gesture {
+        DragGesture(minimumDistance: 0)
+            .onChanged { value in
+                guard vm.engine.status == .playing else { return }
+                // Cell-snapped horizontal movement.
+                let target = Int((value.translation.width / cell).rounded(.towardZero))
+                while appliedCells < target { vm.nudge(1); appliedCells += 1 }
+                while appliedCells > target { vm.nudge(-1); appliedCells -= 1 }
+                // Hold-to-soft-drop while dragging downward.
+                if value.translation.height > cell, abs(value.translation.width) < cell {
+                    vm.setSoftDrop(true)
+                }
+            }
+            .onEnded { value in
+                vm.setSoftDrop(false)
+                defer { appliedCells = 0 }
+                guard vm.engine.status == .playing else { return }
+                let t = value.translation
+                let p = value.predictedEndTranslation
+                if abs(t.width) < tapThreshold, abs(t.height) < tapThreshold {
+                    vm.rotate(clockwise: true)
+                } else if t.height < -swipeThreshold, abs(t.height) > abs(t.width) {
+                    vm.hold()
+                } else if t.height > swipeThreshold, abs(t.height) > abs(t.width) {
+                    if p.height > swipeThreshold * 4 { vm.hardDrop() } else { vm.setSoftDrop(false) }
+                }
+            }
+    }
+
+    // MARK: - Overlays
+
+    private var pauseOverlay: some View {
+        OverlayCard {
+            Text("PAUSED").font(.largeTitle).bold().foregroundColor(.white)
+            OverlayButton(title: "Resume", icon: "play.fill", color: .blue) { vm.resume() }
+            OverlayButton(title: "Restart", icon: "arrow.clockwise", color: .orange) { vm.restart() }
+            OverlayButton(title: "Menu", icon: "house.fill", color: .gray) { vm.cleanup(); dismiss() }
+        }
+    }
+
+    private var endOverlay: some View {
+        OverlayCard {
+            Text(endTitle).font(.largeTitle).bold().foregroundColor(.white)
+            VStack(spacing: 4) {
+                Text("Score \(vm.engine.score)").font(.title3).foregroundColor(.white)
+                if mode == .sprint, vm.engine.status == .finished {
+                    Text("Time \(timeString(vm.engine.elapsedTime))").foregroundColor(.white.opacity(0.85))
+                }
+                Text("Lines \(vm.engine.lines)").font(.subheadline).foregroundColor(.white.opacity(0.7))
+                if let rank = vm.lastRank {
+                    Text("Leaderboard #\(rank)").font(.headline).foregroundColor(.yellow).padding(.top, 2)
+                }
+            }
+            QuoteView(quote: vm.endQuote, compact: true).padding(.vertical, 4)
+            OverlayButton(title: "Play Again", icon: "arrow.clockwise", color: .green) { vm.restart() }
+            OverlayButton(title: "Menu", icon: "house.fill", color: .gray) { vm.cleanup(); dismiss() }
+        }
+    }
+
+    private var endTitle: String {
+        if vm.engine.status == .finished {
+            return mode == .sprint ? "COMPLETE" : "TIME!"
+        }
+        return "GAME OVER"
+    }
+
+    // MARK: - Helpers
+
+    private func cellSize(for size: CGSize) -> CGFloat {
+        let sideColumns: CGFloat = 2 * (size.width * 0.16)
+        let widthBudget = size.width - sideColumns - 24
+        let byWidth = widthBudget / 10
+        let byHeight = (size.height - 260) / 20
+        return min(max(min(byWidth, byHeight), 12), 30)
+    }
+
+    private func timeString(_ t: TimeInterval) -> String {
+        let s = Int(t)
+        return String(format: "%d:%02d", s / 60, s % 60)
+    }
+}
+
+/// A centered translucent overlay card.
+struct OverlayCard<Content: View>: View {
+    @ViewBuilder var content: Content
+    var body: some View {
+        ZStack {
+            Color.black.opacity(0.78).ignoresSafeArea()
+            VStack(spacing: 16) { content }
+                .padding(28)
+                .frame(maxWidth: 340)
+                .background(RoundedRectangle(cornerRadius: 20).fill(Color(white: 0.1)))
+                .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.white.opacity(0.1)))
+                .padding(24)
         }
     }
 }
 
-#Preview {
-    ContentView()
+struct OverlayButton: View {
+    let title: String
+    let icon: String
+    let color: Color
+    let action: () -> Void
+    var body: some View {
+        Button(action: action) {
+            HStack { Image(systemName: icon); Text(title) }
+                .font(.headline).fontWeight(.semibold).foregroundColor(.white)
+                .frame(maxWidth: 220).padding(.vertical, 14)
+                .background(RoundedRectangle(cornerRadius: 12).fill(color))
+        }
+    }
 }

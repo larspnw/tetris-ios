@@ -1,173 +1,74 @@
 import SwiftUI
 
-/// Main menu view shown when app launches
+/// Main menu: title, a launch quote, and navigation to modes / leaderboard / settings.
 struct MenuView: View {
-    @Binding var showGame: Bool
+    @State private var quote = QuoteBook.random()
     @State private var showSettings = false
-    
+
     var body: some View {
         ZStack {
-            // Background
-            Color.black
-                .ignoresSafeArea()
-            
-            // Settings sheet
-            .sheet(isPresented: $showSettings) {
-                SettingsView()
-            }
-            
-            VStack(spacing: 32) {
-                // Settings button
+            Color.black.ignoresSafeArea()
+            VStack(spacing: 28) {
                 HStack {
                     Spacer()
-                    Button(action: {
-                        showSettings = true
-                    }) {
-                        Image(systemName: "gearshape.fill")
-                            .font(.title2)
-                            .foregroundColor(.white)
-                            .padding(12)
-                            .background(
-                                Circle()
-                                    .fill(Color.gray.opacity(0.3))
-                            )
-                    }
-                    .padding(.top, 16)
-                    .padding(.trailing, 16)
-                }
-                Spacer()
-                
-                // Title
-                VStack(spacing: 8) {
-                    Text("TETRIS")
-                        .font(.system(size: 56, weight: .bold, design: .rounded))
-                        .foregroundColor(.white)
-                    
-                    Text("Swift Edition")
-                        .font(.title3)
-                        .fontWeight(.medium)
-                        .foregroundColor(.gray)
-                }
-                
-                Spacer()
-                
-                // Stats Card
-                VStack(spacing: 20) {
-                    Text("STATISTICS")
-                        .font(.caption)
-                        .fontWeight(.bold)
-                        .foregroundColor(.gray)
-                        .tracking(2)
-                    
-                    HStack(spacing: 24) {
-                        StatItemView(
-                            title: "High Score",
-                            value: "\(StatsManager.shared.highScore)",
-                            icon: "trophy.fill",
-                            color: .yellow
-                        )
-                        
-                        StatItemView(
-                            title: "Total Time",
-                            value: StatsManager.shared.formattedTotalTimePlayed(),
-                            icon: "clock.fill",
-                            color: .cyan
-                        )
+                    Button { showSettings = true } label: {
+                        Image(systemName: "gearshape.fill").font(.title2).foregroundColor(.white)
+                            .padding(12).background(Circle().fill(Color.white.opacity(0.12)))
                     }
                 }
-                .padding(24)
-                .background(
-                    RoundedRectangle(cornerRadius: 16)
-                        .fill(Color.gray.opacity(0.15))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 16)
-                                .stroke(Color.gray.opacity(0.3), lineWidth: 1)
-                        )
-                )
-                .padding(.horizontal, 32)
-                
+                .padding([.top, .trailing])
+
                 Spacer()
-                
-                // Start Button
-                Button(action: {
-                    showGame = true
-                }) {
-                    HStack(spacing: 12) {
-                        Image(systemName: "play.fill")
-                            .font(.title2)
-                        Text("Start Game")
-                            .font(.title2)
-                            .fontWeight(.bold)
-                    }
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 48)
-                    .padding(.vertical, 20)
-                    .background(
-                        RoundedRectangle(cornerRadius: 16)
-                            .fill(
-                                LinearGradient(
-                                    colors: [.blue, .blue.opacity(0.8)],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
-                            .shadow(color: .blue.opacity(0.4), radius: 8, x: 0, y: 4)
-                    )
+
+                VStack(spacing: 6) {
+                    Text("TETRIS").font(.system(size: 56, weight: .bold, design: .rounded)).foregroundColor(.white)
+                    Text("Swift Edition").font(.title3).foregroundColor(.gray)
                 }
-                .buttonStyle(ScaleButtonStyle())
-                
+
+                QuoteView(quote: quote)
+
                 Spacer()
-                
-                // Version info
+
+                VStack(spacing: 14) {
+                    NavigationLink(value: MenuRoute.modeSelect) {
+                        menuButton(title: "Play", icon: "play.fill", colors: [.blue, .blue.opacity(0.8)])
+                    }
+                    NavigationLink(value: MenuRoute.leaderboard) {
+                        menuButton(title: "Leaderboard", icon: "trophy.fill", colors: [.orange, .orange.opacity(0.8)])
+                    }
+                }
+                .padding(.horizontal, 40)
+
+                Spacer()
+
                 if let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String,
                    let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String {
-                    Text("Version \(version) (\(build))")
-                        .font(.caption)
-                        .foregroundColor(.gray.opacity(0.6))
-                        .padding(.bottom, 16)
+                    Text("Version \(version) (\(build))").font(.caption).foregroundColor(.gray.opacity(0.6))
+                        .padding(.bottom, 12)
                 }
             }
         }
-    }
-}
-
-/// Individual stat item for the menu
-struct StatItemView: View {
-    let title: String
-    let value: String
-    let icon: String
-    let color: Color
-    
-    var body: some View {
-        VStack(spacing: 8) {
-            Image(systemName: icon)
-                .font(.title2)
-                .foregroundColor(color)
-            
-            Text(value)
-                .font(.title3)
-                .fontWeight(.bold)
-                .foregroundColor(.white)
-                .monospacedDigit()
-            
-            Text(title)
-                .font(.caption)
-                .fontWeight(.medium)
-                .foregroundColor(.gray)
+        .navigationBarHidden(true)
+        .navigationDestination(for: GameMode.self) { ContentView(mode: $0) }
+        .navigationDestination(for: MenuRoute.self) { route in
+            switch route {
+            case .modeSelect:  ModeSelectView()
+            case .leaderboard: LeaderboardView()
+            }
         }
-        .frame(minWidth: 100)
+        .sheet(isPresented: $showSettings) { SettingsView() }
+        .onAppear { quote = QuoteBook.random() }
     }
-}
 
-/// Button scale animation style
-struct ScaleButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .scaleEffect(configuration.isPressed ? 0.95 : 1.0)
-            .animation(.easeInOut(duration: 0.1), value: configuration.isPressed)
+    private func menuButton(title: String, icon: String, colors: [Color]) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon).font(.title3)
+            Text(title).font(.title3).fontWeight(.bold)
+        }
+        .foregroundColor(.white)
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 18)
+        .background(RoundedRectangle(cornerRadius: 16)
+            .fill(LinearGradient(colors: colors, startPoint: .topLeading, endPoint: .bottomTrailing)))
     }
-}
-
-#Preview {
-    MenuView(showGame: .constant(false))
 }
