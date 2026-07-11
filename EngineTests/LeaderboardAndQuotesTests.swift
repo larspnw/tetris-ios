@@ -105,7 +105,7 @@ final class QuotesTests: XCTestCase {
 
 final class GameModeTests: XCTestCase {
     func testAllModesHaveDistinctMetadata() {
-        XCTAssertEqual(GameMode.allCases.count, 3)
+        XCTAssertEqual(GameMode.allCases.count, 5)
         for mode in GameMode.allCases {
             XCTAssertFalse(mode.title.isEmpty)
             XCTAssertFalse(mode.subtitle.isEmpty)
@@ -113,6 +113,35 @@ final class GameModeTests: XCTestCase {
         XCTAssertTrue(GameMode.sprint.ranksByTime)
         XCTAssertFalse(GameMode.ultra.ranksByTime)
         XCTAssertFalse(GameMode.zen.ranksByTime)
+        XCTAssertFalse(GameMode.marathon.ranksByTime)
+        XCTAssertFalse(GameMode.classic.ranksByTime)
         XCTAssertEqual(GameMode(rawValue: "ultra"), .ultra)
+        XCTAssertEqual(GameMode(rawValue: "marathon"), .marathon)
+        XCTAssertEqual(GameMode(rawValue: "classic"), .classic)
+    }
+
+    func testModeConfigurationSurface() {
+        XCTAssertEqual(GameMode.sprint.lineGoal, 40)
+        XCTAssertEqual(GameMode.marathon.lineGoal, 150)
+        XCTAssertNil(GameMode.zen.lineGoal)
+        XCTAssertEqual(GameMode.ultra.duration, 120)
+        XCTAssertNil(GameMode.marathon.duration)
+
+        XCTAssertFalse(GameMode.classic.holdEnabled)
+        XCTAssertFalse(GameMode.classic.ghostEnabled)
+        XCTAssertFalse(GameMode.classic.usesSevenBag)
+        XCTAssertEqual(GameMode.classic.defaultPreviewCount, 1)
+        XCTAssertEqual(GameMode.classic.scoringStyle, .nes)
+        for mode in GameMode.allCases where mode != .classic {
+            XCTAssertTrue(mode.holdEnabled)
+            XCTAssertTrue(mode.usesSevenBag)
+            XCTAssertEqual(mode.scoringStyle, .guideline)
+        }
+
+        XCTAssertFalse(GameMode.sprint.flowEnabled, "Sprint stays a pure race")
+        XCTAssertFalse(GameMode.classic.flowEnabled, "no Flow in 1989")
+        for mode in [GameMode.marathon, .ultra, .zen] {
+            XCTAssertTrue(mode.flowEnabled)
+        }
     }
 }

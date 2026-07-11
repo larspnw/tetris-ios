@@ -49,7 +49,7 @@ public final class GameEngine {
     private var clearTimer: TimeInterval = 0
 
     // Internals.
-    private var bag: SevenBag
+    private var bag: any PieceRandomizer
     private var scorer = Scorer()
     private var canHold = true
     private var softDropping = false
@@ -60,12 +60,12 @@ public final class GameEngine {
     private var usedLongKick = false
 
     public init(mode: GameMode,
-                previewCount: Int = 5,
+                previewCount: Int? = nil,
                 rng: any RandomNumberGenerator = SystemRandomNumberGenerator()) {
         self.mode = mode
-        self.previewCount = previewCount
+        self.previewCount = previewCount ?? mode.defaultPreviewCount
         self.field = Playfield()
-        self.bag = SevenBag(rng: rng)
+        self.bag = mode.usesSevenBag ? SevenBag(rng: rng) : ClassicRandomizer(rng: rng)
         // Temporary; replaced in start().
         self.current = Piece(kind: .i, origin: Coord(0, 0))
     }
@@ -78,14 +78,14 @@ public final class GameEngine {
     /// The ghost (landing projection) of the current piece.
     public var ghost: Piece { field.ghost(current) }
 
-    /// Remaining time for Ultra (seconds), or nil for other modes.
+    /// Remaining time for a time-limited mode (Ultra), or nil otherwise.
     public var timeRemaining: TimeInterval? {
-        mode == .ultra ? max(0, GameMode.ultraDuration - elapsedTime) : nil
+        mode.duration.map { max(0, $0 - elapsedTime) }
     }
 
-    /// Lines left to clear for Sprint, or nil otherwise.
+    /// Lines left to clear for a line-goal mode (Sprint/Marathon), or nil otherwise.
     public var linesRemaining: Int? {
-        mode == .sprint ? max(0, GameMode.sprintLineGoal - lines) : nil
+        mode.lineGoal.map { max(0, $0 - lines) }
     }
 
     /// Spawn origin for a kind: horizontally centered, at the top of the visible field.
@@ -136,8 +136,8 @@ public final class GameEngine {
         guard status == .playing else { return }
         elapsedTime += dt
 
-        if mode == .ultra && elapsedTime >= GameMode.ultraDuration {
-            elapsedTime = GameMode.ultraDuration
+        if let limit = mode.duration, elapsedTime >= limit {
+            elapsedTime = limit
             status = .finished
             return
         }
@@ -152,7 +152,7 @@ public final class GameEngine {
         let grounded = field.collides(current.moved(dx: 0, dy: 1))
         if grounded {
             lockTimer += dt
-            if lockTimer >= Self.lockDelay { lockCurrentPiece() }
+            if lockTimer >= effectiveLockDelay { lockCurrentPiece() }
         } else {
             lockTimer = 0
             lockResets = 0
@@ -168,8 +168,19 @@ public final class GameEngine {
     }
 
     private func currentFallInterval() -> TimeInterval {
-        let gravity = Gravity.secondsPerLine(level: level)
+        let gravity: TimeInterval
+        switch mode {
+        case .zen:     gravity = Gravity.zenSecondsPerLine
+        case .classic: gravity = Gravity.nesSecondsPerRow(nesLevel: level - 1)
+        default:       gravity = Gravity.secondsPerLine(level: level)
+        }
         return softDropping ? min(gravity, Self.softDropCellInterval) : gravity
+    }
+
+    /// Classic gets no modern lock delay — just the current gravity step to slide,
+    /// NES-style. Modern modes use the Guideline 0.5s.
+    private var effectiveLockDelay: TimeInterval {
+        mode == .classic ? currentFallInterval() : Self.lockDelay
     }
 
     // MARK: - Inputs
@@ -229,6 +240,7 @@ public final class GameEngine {
     }
 
     private func registerLockReset() {
+        guard mode != .classic else { return }                            // NES: no mercy
         guard field.collides(current.moved(dx: 0, dy: 1)) else { return } // only when grounded
         guard lockResets < Self.maxLockResets else { return }
         lockTimer = 0
@@ -247,7 +259,7 @@ public final class GameEngine {
     }
 
     public func hold() {
-        guard status == .playing, canHold, !isClearing else { return }
+        guard status == .playing, canHold, mode.holdEnabled, !isClearing else { return }
         canHold = false
         let outgoing = current.kind
         if let h = holdKind {
@@ -262,36 +274,44 @@ public final class GameEngine {
     // MARK: - Locking & clearing
 
     private func lockCurrentPiece() {
-        // Classify a T-spin from the resting position before locking.
-        let tspin = TSpinDetector.detect(piece: current,
-                                          field: field,
-                                          lastActionWasRotation: lastActionWasRotation,
-                                          usedLongKick: usedLongKick)
+        // Classify a T-spin from the resting position before locking (Guideline only).
+        let tspin: TSpin = mode.scoringStyle == .guideline
+            ? TSpinDetector.detect(piece: current,
+                                   field: field,
+                                   lastActionWasRotation: lastActionWasRotation,
+                                   usedLongKick: usedLongKick)
+            : .none
         field.lock(current)
         let full = field.fullRows()
         let cleared = full.count
         // Would the field be empty once these rows are removed? (perfect clear)
         let perfect = (cleared > 0) && (field.filledCount == cleared * field.width)
 
-        if cleared > 0 || tspin != .none {
-            let outcome = scorer.register(lines: cleared, tspin: tspin, level: level, perfectClear: perfect)
-            score += outcome.points
-            lastOutcome = outcome
-        } else {
-            lastOutcome = .zero
-            _ = scorer.register(lines: 0, tspin: .none, level: level, perfectClear: false) // resets combo
+        switch mode.scoringStyle {
+        case .guideline:
+            if cleared > 0 || tspin != .none {
+                let outcome = scorer.register(lines: cleared, tspin: tspin, level: level, perfectClear: perfect)
+                score += outcome.points
+                lastOutcome = outcome
+            } else {
+                lastOutcome = .zero
+                _ = scorer.register(lines: 0, tspin: .none, level: level, perfectClear: false) // resets combo
+            }
+        case .nes:
+            let points = Scorer.nesPoints(lines: cleared, level: level)
+            score += points
+            lastOutcome = cleared > 0
+                ? ClearOutcome(linesCleared: cleared, tspin: .none, perfectClear: false,
+                               backToBack: false, combo: -1, points: points)
+                : .zero
         }
 
         lines += cleared
         level = lines / 10 + 1
         piecesPlaced += 1
 
-        // Mode completion check (Sprint): finish immediately, removing the rows.
-        if mode == .sprint && lines >= GameMode.sprintLineGoal {
-            field.clearFullLines()
-            status = .finished
-            return
-        }
+        // Mode completion check (Sprint/Marathon): finish immediately, removing the rows.
+        if checkLineGoal() { return }
 
         if lineClearDelay > 0 && cleared > 0 {
             // Defer the collapse + next spawn so the UI can animate the full rows.
@@ -304,9 +324,19 @@ public final class GameEngine {
         }
     }
 
+    /// Finish the run if the mode's line goal has been reached. Returns true if it ended.
+    private func checkLineGoal() -> Bool {
+        guard let goal = mode.lineGoal, lines >= goal else { return false }
+        field.clearFullLines()
+        status = .finished
+        return true
+    }
+
     #if DEBUG
     /// Test hook: load a specific board state (not part of the shipping API).
     func _testLoadField(_ f: Playfield) { field = f }
+    /// Test hook: pretend `n` lines have already been cleared (recomputes the level).
+    func _testSetLines(_ n: Int) { lines = n; level = lines / 10 + 1 }
     #endif
 
     /// Remove the flashed rows and bring in the next piece (end of the clear animation).
