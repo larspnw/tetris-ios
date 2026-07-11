@@ -92,6 +92,7 @@ struct GameBoardView: View {
     let cellSize: CGFloat
     var spacing: CGFloat = 1
     var clearProgress: Double = 0
+    var flowActive: Bool = false
 
     var body: some View {
         VStack(spacing: spacing) {
@@ -105,7 +106,11 @@ struct GameBoardView: View {
         }
         .padding(4)
         .background(RoundedRectangle(cornerRadius: 8).fill(Color.black.opacity(0.85)))
-        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.white.opacity(0.15), lineWidth: 1.5))
+        .overlay(RoundedRectangle(cornerRadius: 8)
+            .stroke(flowActive ? Color.cyan.opacity(0.9) : Color.white.opacity(0.15),
+                    lineWidth: flowActive ? 2.5 : 1.5))
+        .shadow(color: flowActive ? .cyan.opacity(0.55) : .clear, radius: flowActive ? 10 : 0)
+        .animation(.easeInOut(duration: 0.3), value: flowActive)
     }
 }
 

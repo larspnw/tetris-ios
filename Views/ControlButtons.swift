@@ -47,7 +47,9 @@ struct ControlPad: View {
                     HoldButton(systemImage: "arrow.clockwise", onPress: { vm.rotate(clockwise: true) })
                 }
                 HStack(spacing: 10) {
-                    HoldButton(systemImage: "tray.and.arrow.down", onPress: { vm.hold() })
+                    if vm.mode.holdEnabled {
+                        HoldButton(systemImage: "tray.and.arrow.down", onPress: { vm.hold() })
+                    }
                     HoldButton(systemImage: "arrow.down",
                                onPress: { vm.setSoftDrop(true) }, onRelease: { vm.setSoftDrop(false) })
                     HoldButton(systemImage: "arrow.down.to.line", onPress: { vm.hardDrop() })

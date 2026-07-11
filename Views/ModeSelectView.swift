@@ -47,9 +47,21 @@ struct ModeSelectView: View {
     }
 
     private func icon(_ m: GameMode) -> String {
-        switch m { case .sprint: return "flag.checkered"; case .ultra: return "timer"; case .zen: return "infinity" }
+        switch m {
+        case .marathon: return "figure.run"
+        case .sprint:   return "flag.checkered"
+        case .ultra:    return "timer"
+        case .zen:      return "infinity"
+        case .classic:  return "gamecontroller.fill"
+        }
     }
     private func color(_ m: GameMode) -> Color {
-        switch m { case .sprint: return .green; case .ultra: return .orange; case .zen: return .cyan }
+        switch m {
+        case .marathon: return .blue
+        case .sprint:   return .green
+        case .ultra:    return .orange
+        case .zen:      return .cyan
+        case .classic:  return .purple
+        }
     }
 }

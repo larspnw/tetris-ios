@@ -25,6 +25,7 @@ final class GameViewModel: NSObject, ObservableObject {
     // Event-edge tracking.
     private var seenPieces = 0
     private var seenLevel = 1
+    private var seenFlowEnds = 0
     private var resultRecorded = false
 
     // DAS/ARR auto-repeat for held horizontal movement.
@@ -48,6 +49,7 @@ final class GameViewModel: NSObject, ObservableObject {
         engine.start()
         seenPieces = engine.piecesPlaced
         seenLevel = engine.level
+        seenFlowEnds = engine.flowEndCount
         resultRecorded = false
         moveDir = 0
         startLoop()
@@ -105,6 +107,15 @@ final class GameViewModel: NSObject, ObservableObject {
         if engine.level > seenLevel {
             seenLevel = engine.level
             Haptics.shared.levelUp(); SoundManager.shared.levelUp()
+        }
+        if engine.flowEndCount > seenFlowEnds {
+            seenFlowEnds = engine.flowEndCount
+            if engine.lastFlowBonus > 0 {
+                // Cash-out: hit it like a Tetris.
+                Haptics.shared.lineClear(4)
+                SoundManager.shared.lineClear(4)
+                impact(1.0)
+            }
         }
     }
 
@@ -183,6 +194,13 @@ final class GameViewModel: NSObject, ObservableObject {
     func setSoftDrop(_ on: Bool) { engine.setSoftDrop(on) }
 
     func hold() { engine.hold(); frame &+= 1 }
+
+    func activateFlow() {
+        guard engine.flowReady else { return }
+        engine.activateFlow()
+        Haptics.shared.levelUp(); SoundManager.shared.levelUp()
+        frame &+= 1
+    }
 
     func restart() { startGame() }
 }

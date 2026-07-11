@@ -26,6 +26,7 @@ struct ContentView: View {
                 VStack(spacing: 10) {
                     topBar
                     statsRow
+                    if mode.flowEnabled { flowBar }
                     boardRow(cell: cell)
                     Spacer(minLength: 4)
                     controls
@@ -84,31 +85,75 @@ struct ContentView: View {
 
     private var goalTitle: String {
         switch mode {
-        case .sprint: return "LEFT"
-        case .ultra:  return "TIME"
-        case .zen:    return "TIME"
+        case .sprint, .marathon: return "LEFT"
+        case .ultra, .zen, .classic: return "TIME"
         }
     }
     private var goalValue: String {
         switch mode {
-        case .sprint: return "\(vm.engine.linesRemaining ?? 0)"
-        case .ultra:  return timeString(vm.engine.timeRemaining ?? 0)
-        case .zen:    return timeString(vm.engine.elapsedTime)
+        case .sprint, .marathon: return "\(vm.engine.linesRemaining ?? 0)"
+        case .ultra: return timeString(vm.engine.timeRemaining ?? 0)
+        case .zen, .classic: return timeString(vm.engine.elapsedTime)
         }
+    }
+
+    /// The Flow meter: fills as lines clear; tap when full to activate. While active it
+    /// drains with the remaining Flow time and shows the banked line count.
+    private var flowBar: some View {
+        let engine = vm.engine
+        let fill = engine.flowActive
+            ? engine.flowTimeRemaining / GameEngine.flowDuration
+            : engine.flowCharge
+        return Button { vm.activateFlow() } label: {
+            ZStack {
+                GeometryReader { g in
+                    RoundedRectangle(cornerRadius: 7)
+                        .fill(engine.flowActive
+                              ? Color.cyan
+                              : (engine.flowReady ? Color.cyan.opacity(0.85) : Color.purple.opacity(0.55)))
+                        .frame(width: max(0, g.size.width * fill))
+                }
+                Text(flowLabel)
+                    .font(.caption2).bold()
+                    .foregroundColor(.white)
+                    .shadow(color: .black.opacity(0.6), radius: 1)
+            }
+            .frame(height: 20)
+            .background(RoundedRectangle(cornerRadius: 7).fill(Color.white.opacity(0.08)))
+            .clipShape(RoundedRectangle(cornerRadius: 7))
+        }
+        .buttonStyle(.plain)
+        .disabled(!engine.flowReady)
+        .padding(.horizontal)
+        .accessibilityIdentifier("flowBar")
+    }
+
+    private var flowLabel: String {
+        let engine = vm.engine
+        if engine.flowActive { return "FLOW · \(engine.flowLines) BANKED" }
+        return engine.flowReady ? "FLOW READY — TAP" : "FLOW"
     }
 
     private func boardRow(cell: CGFloat) -> some View {
         HStack(alignment: .top, spacing: 8) {
             VStack(spacing: 6) {
-                Text("HOLD").font(.caption2).foregroundColor(.secondary)
-                PiecePreview(kind: vm.engine.holdKind, cellSize: cell * 0.5, dimmed: true)
+                if mode.holdEnabled {
+                    Text("HOLD").font(.caption2).foregroundColor(.secondary)
+                    PiecePreview(kind: vm.engine.holdKind, cellSize: cell * 0.5, dimmed: true)
+                } else {
+                    // Keep the board centered even without a hold box (Classic).
+                    Color.clear.frame(width: cell * 0.5 * 4.2, height: 1)
+                }
             }
-            GameBoardView(grid: BoardRenderer.grid(vm.engine, ghostOn: settings.ghostEnabled),
-                          cellSize: cell, clearProgress: vm.engine.clearProgress)
+            GameBoardView(grid: BoardRenderer.grid(vm.engine,
+                                                   ghostOn: settings.ghostEnabled && mode.ghostEnabled),
+                          cellSize: cell, clearProgress: vm.engine.clearProgress,
+                          flowActive: vm.engine.flowActive)
                 .gesture(boardGesture(cell: cell))
             VStack(spacing: 6) {
                 Text("NEXT").font(.caption2).foregroundColor(.secondary)
-                ForEach(Array(vm.engine.nextQueue().prefix(5).enumerated()), id: \.offset) { _, k in
+                ForEach(Array(vm.engine.nextQueue().prefix(vm.engine.previewCount).enumerated()),
+                        id: \.offset) { _, k in
                     PiecePreview(kind: k, cellSize: cell * 0.42)
                 }
             }
@@ -193,7 +238,7 @@ struct ContentView: View {
 
     private var endTitle: String {
         if vm.engine.status == .finished {
-            return mode == .sprint ? "COMPLETE" : "TIME!"
+            return mode == .ultra ? "TIME!" : "COMPLETE"
         }
         return "GAME OVER"
     }
