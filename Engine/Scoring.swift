@@ -127,4 +127,12 @@ public struct Scorer: Sendable {
         }
         return base * max(1, level)
     }
+
+    /// Flow cash-out: a triangular escalation so banking more lines in one Flow is worth
+    /// far more than clearing them separately — 4 lines pay 1000×level (vs 800 for a
+    /// Tetris), 8 pay 3600×level, a full 16-line bank pays 13600×level.
+    public static func flowBonus(lines: Int, level: Int) -> Int {
+        guard lines > 0 else { return 0 }
+        return 100 * lines * (lines + 1) / 2 * max(1, level)
+    }
 }
