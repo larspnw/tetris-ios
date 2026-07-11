@@ -1,8 +1,8 @@
 # Tetris for iOS
 
 A SwiftUI Tetris game following the modern Tetris Guideline (SRS, 7-bag, hold, ghost,
-lock delay, T-spin scoring), with Sprint/Ultra/Zen modes, a leaderboard, and an
-inspirational-quotes feature.
+lock delay, T-spin scoring), with Marathon/Sprint/Ultra/Zen/Classic modes, a Zone-style
+"Flow" meter, a leaderboard, and an inspirational-quotes feature.
 
 ## Architecture
 - **`Engine/`** — pure-Swift game core (NO SwiftUI/UIKit imports). Deterministic and
@@ -46,7 +46,14 @@ xcodebuild test -scheme Tetris -destination 'platform=iOS Simulator,name=iPhone 
   move-reset capped at 15.
 - Scoring: 100/300/500/800 base (×level), T-spins, back-to-back ×1.5, combo, perfect clear,
   soft-drop 1/cell, hard-drop 2/cell. Gravity = (0.8 − (level−1)·0.007)^(level−1) sec/line.
-- Modes: Sprint (40 lines, time = score), Ultra (120s score attack), Zen (endless, no top-out).
+- Modes: Marathon (150 lines, score attack), Sprint (40 lines, time = score), Ultra (120s
+  score attack), Zen (endless, no top-out, fixed relaxed gravity), Classic (NES rules:
+  no hold/ghost, 1-piece preview, memoryless single-reroll randomizer, NES frames-per-row
+  gravity incl. the level-29 killscreen, 40/100/300/1200 scoring, no modern lock delay).
+- Flow (Marathon/Ultra/Zen): line clears charge a meter (full at 12); activating freezes
+  gravity for 10s while full rows are banked at the bottom, then all clear at once for a
+  triangular bonus (100·n(n+1)/2 ×level). Blocked spawns and the Ultra buzzer cash out
+  early. Engine state: flowCharge/flowActive/flowLines/flowEndCount.
 
 ## Real-world caveat
 "Tetris" and the Korobeiniki theme are trademarks of The Tetris Company. Fine for personal

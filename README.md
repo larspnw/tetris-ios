@@ -1,121 +1,83 @@
 # Tetris for iOS
 
-A complete Tetris implementation for iOS built with SwiftUI.
+A modern-Guideline Tetris for iOS, built with SwiftUI on a pure-Swift, deterministic,
+fully unit-tested game engine.
 
 ![Tetris Screenshot](screenshot.png)
 
 ## Features
 
-- **Classic Tetris Gameplay**: All 7 standard tetrominoes (I, O, T, S, Z, J, L)
-- **10x20 Game Board**: Standard Tetris dimensions
-- **Touch Controls**:
-  - Tap to rotate piece
-  - Swipe left/right to move
-  - Swipe down for soft drop
-- **Progressive Difficulty**: Speed increases as you level up
-- **Scoring System**: Classic Tetris scoring (100/300/500/800 points per 1-4 lines)
-- **Level System**: Level up every 10 lines cleared
-- **Next Piece Preview**: See what's coming next
-- **Pause/Resume**: Take breaks anytime
-- **Game Over Detection**: Automatic restart option
+- **Guideline core**: SRS rotation with full JLSTZ/I wall-kick tables, 7-bag randomizer,
+  hold, ghost piece, 5-piece preview, hard/soft drop, 0.5s lock delay (15-move reset cap)
+- **Scoring depth**: T-spins (full/mini, 3-corner rule), back-to-back ×1.5, combos,
+  perfect clears, soft/hard-drop points, Tetris Worlds gravity curve
+- **Flow**: a Zone-style meter — clearing lines charges it; activate to freeze gravity
+  for 10 seconds while line clears bank at the bottom, then cash out all at once for an
+  escalating bonus. A big-score play and a panic button in one.
+- **Five modes**:
+  - **Marathon** — clear 150 lines with rising speed; score is what counts
+  - **Sprint** — clear 40 lines as fast as possible; time is your score
+  - **Ultra** — 120-second score attack
+  - **Zen** — endless, no game over, fixed relaxed gravity
+  - **Classic** — NES rules: no hold, no ghost, one-piece preview, memoryless
+    randomizer, NES frames-per-row gravity (killscreen at 29), 40/100/300/1200 scoring
+- **Three control schemes**: swipe, drag, or on-screen buttons, with tunable DAS/ARR
+- **Juice**: haptics, synthesized sound effects, line-clear flash/collapse, screen shake
+- **Leaderboard**: per-mode top 25, persisted; **quotes** on launch and between games
 
 ## Requirements
 
-- iOS 16.0+
-- Xcode 15.0+
-- Swift 5.9+
+- iOS 16.0+ / Xcode 15.0+ / Swift 5.9+
 
-## How to Run
+## How to run
 
-### Option 1: Open in Xcode
+Open `Tetris.xcodeproj` in Xcode, pick a simulator, `Cmd+R`.
 
-1. Open `Tetris.xcodeproj` in Xcode
-2. Select your target device or simulator
-3. Press `Cmd+R` to build and run
+## Testing
 
-### Option 2: Swift Package Manager
+The engine is SwiftUI-free and deterministic (injected RNG, explicit time steps), so it
+tests on macOS without a simulator:
 
 ```bash
-cd /Users/larry/Projects/tetris-ios
-swift build
+swift test --enable-code-coverage   # engine unit tests
 ```
 
-## Project Structure
+Full app build + XCUITest E2E (needs an iOS simulator runtime):
+
+```bash
+xcodebuild test -scheme Tetris -destination 'platform=iOS Simulator,name=iPhone 16'
+```
+
+## Project structure
 
 ```
 tetris-ios/
-├── TetrisApp.swift              # App entry point
-├── Tetris.xcodeproj/            # Xcode project
-├── Info.plist                   # App configuration
-│
-├── Models/                      # Data models
-│   ├── TetrominoType.swift     # Piece definitions and rotations
-│   ├── GameModels.swift        # Block, ActivePiece, GameState
-│   └── Board.swift             # Game board grid logic
-│
-├── ViewModels/                  # Business logic
-│   └── GameViewModel.swift     # Game state management & rules
-│
-└── Views/                       # UI components
-    ├── ContentView.swift       # Main game view
-    └── GameComponents.swift    # Board, blocks, overlays
+├── Engine/          # Pure-Swift game core (no SwiftUI/UIKit) — SRS, scoring, modes, Flow
+├── EngineTests/     # XCTest suite for the engine (runs via `swift test`)
+├── ViewModels/      # GameViewModel: display-link loop, DAS/ARR, event → juice mapping
+├── Views/           # SwiftUI screens and board rendering
+├── Managers/        # Settings, sound, haptics, leaderboard persistence
+├── TetrisUITests/   # XCUITest end-to-end flows
+└── Package.swift    # SPM manifest so the engine + tests run on macOS
 ```
 
-## Game Controls
+See `CLAUDE.md` for engine rules and architecture guidance.
+
+## Controls (swipe scheme)
 
 | Gesture | Action |
 |---------|--------|
-| Tap | Rotate piece clockwise |
-| Swipe Left | Move piece left |
-| Swipe Right | Move piece right |
-| Swipe Down | Soft drop (move down faster) |
-| Pause Button | Pause/Resume game |
+| Tap | Rotate clockwise |
+| Swipe left/right | Move |
+| Drag down | Soft drop |
+| Flick down | Hard drop |
+| Swipe up | Hold |
+| Flow bar (when full) | Activate Flow |
 
-## Scoring
+## Trademark note
 
-- 1 line: 100 × level
-- 2 lines: 300 × level
-- 3 lines: 500 × level
-- 4 lines (Tetris): 800 × level
-
-## Level Progression
-
-- Start at Level 1
-- Level increases every 10 lines cleared
-- Fall speed increases with each level
-
-## Code Highlights
-
-### Tetromino Rotation System
-Each piece type has 4 rotation states (0°, 90°, 180°, 270°). The rotation system uses wall kicks to allow pieces to rotate near walls.
-
-### 7-Bag Randomizer
-Pieces are drawn from a bag containing all 7 tetrominoes, ensuring fair distribution and preventing long runs without a specific piece.
-
-### Collision Detection
-The board validates all piece movements before applying them, checking both boundary conditions and collision with locked pieces.
-
-## Known Limitations
-
-1. **No Hold Feature**: Classic Tetris hold piece not implemented
-2. **No Ghost Piece**: No preview of where piece will land
-3. **Limited Wall Kicks**: Basic wall kick system (SRS not fully implemented)
-4. **No High Score Persistence**: Scores reset when app closes
-5. **No Sound**: No audio effects or music
-
-## Future Improvements
-
-- [ ] Add hold piece functionality (swap current piece)
-- [ ] Add ghost piece preview
-- [ ] Implement Super Rotation System (SRS)
-- [ ] Add high score persistence with UserDefaults
-- [ ] Add sound effects and background music
-- [ ] Add haptic feedback for piece landing
-- [ ] Add hard drop (instant drop to bottom)
-- [ ] Add combo scoring multipliers
-- [ ] Add T-spin detection and scoring
-- [ ] Add settings menu for speed/controls
-- [ ] Add dark/light theme toggle
+"Tetris" and the Korobeiniki theme are trademarks of The Tetris Company. This project is
+for personal use; a public App Store release would need an original name and music.
 
 ## License
 
