@@ -9,6 +9,11 @@ struct ContentView: View {
     @State private var showSettings = false
     @State private var appliedCells = 0
     @State private var shake: CGFloat = 0
+    /// Direction a drag locked into. Once latched, cross-axis motion is ignored, so a
+    /// down-swipe can't drift the piece sideways and a side-swipe can't soft-drop it.
+    @State private var dragAxis: DragAxis?
+
+    private enum DragAxis { case horizontal, vertical }
 
     init(mode: GameMode) {
         self.mode = mode
@@ -17,6 +22,10 @@ struct ContentView: View {
 
     private let tapThreshold: CGFloat = 12
     private let swipeThreshold: CGFloat = 24
+    /// Movement before a drag commits to an axis.
+    private let axisLatchThreshold: CGFloat = 10
+    /// Predicted (velocity-carried) downward travel that reads as a hard-drop flick.
+    private let hardDropPredicted: CGFloat = 96
 
     var body: some View {
         GeometryReader { geo in
@@ -181,27 +190,52 @@ struct ContentView: View {
         DragGesture(minimumDistance: 0)
             .onChanged { value in
                 guard vm.engine.status == .playing else { return }
-                // Cell-snapped horizontal movement.
-                let target = Int((value.translation.width / cell).rounded(.towardZero))
-                while appliedCells < target { vm.nudge(1); appliedCells += 1 }
-                while appliedCells > target { vm.nudge(-1); appliedCells -= 1 }
-                // Hold-to-soft-drop while dragging downward.
-                if value.translation.height > cell, abs(value.translation.width) < cell {
-                    vm.setSoftDrop(true)
+                let t = value.translation
+
+                // Latch the drag to one axis once the finger has clearly moved.
+                // Horizontal needs a 1.2× margin: a sloppy down-swipe stays vertical.
+                if dragAxis == nil, max(abs(t.width), abs(t.height)) >= axisLatchThreshold {
+                    dragAxis = abs(t.width) > abs(t.height) * 1.2 ? .horizontal : .vertical
+                }
+
+                switch dragAxis {
+                case .horizontal:
+                    // Cell-snapped horizontal movement.
+                    let target = Int((t.width / cell).rounded(.towardZero))
+                    while appliedCells < target { vm.nudge(1); appliedCells += 1 }
+                    while appliedCells > target { vm.nudge(-1); appliedCells -= 1 }
+                case .vertical:
+                    // Hold-to-soft-drop while dragging downward.
+                    if t.height > cell { vm.setSoftDrop(true) }
+                case nil:
+                    break
                 }
             }
             .onEnded { value in
                 vm.setSoftDrop(false)
-                defer { appliedCells = 0 }
+                defer { appliedCells = 0; dragAxis = nil }
                 guard vm.engine.status == .playing else { return }
                 let t = value.translation
                 let p = value.predictedEndTranslation
-                if abs(t.width) < tapThreshold, abs(t.height) < tapThreshold {
-                    vm.rotate(clockwise: true)
-                } else if t.height < -swipeThreshold, abs(t.height) > abs(t.width) {
-                    vm.hold()
-                } else if t.height > swipeThreshold, abs(t.height) > abs(t.width) {
-                    if p.height > swipeThreshold * 4 { vm.hardDrop() } else { vm.setSoftDrop(false) }
+
+                switch dragAxis {
+                case nil:
+                    // Never latched an axis. A rotate is a deliberate tap: both the actual
+                    // AND the velocity-predicted travel must be tiny — a fast flick that
+                    // lifted early is a drop, not a rotate.
+                    if abs(p.width) < tapThreshold, abs(p.height) < tapThreshold {
+                        vm.rotate(clockwise: true)
+                    } else if p.height > hardDropPredicted, p.height > abs(p.width) {
+                        vm.hardDrop()
+                    }
+                case .vertical:
+                    if t.height < -swipeThreshold {
+                        vm.hold()
+                    } else if t.height > swipeThreshold, p.height > hardDropPredicted {
+                        vm.hardDrop()
+                    }
+                case .horizontal:
+                    break // movement already applied cell-by-cell during the drag
                 }
             }
     }
