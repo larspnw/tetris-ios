@@ -106,11 +106,22 @@ struct GameBoardView: View {
         }
         .padding(4)
         .background(RoundedRectangle(cornerRadius: 8).fill(Color.black.opacity(0.85)))
-        .overlay(RoundedRectangle(cornerRadius: 8)
-            .stroke(flowActive ? Color.cyan.opacity(0.9) : Color.white.opacity(0.15),
-                    lineWidth: flowActive ? 2.5 : 1.5))
-        .shadow(color: flowActive ? .cyan.opacity(0.55) : .clear, radius: flowActive ? 10 : 0)
+        .overlay(flowBorder)
         .animation(.easeInOut(duration: 0.3), value: flowActive)
+    }
+
+    /// The border, plus (only while Flow is active) a cyan glow. The glow lives on this
+    /// static stroke shape — never on the 200 cell views that repaint every frame — so
+    /// Core Animation isn't re-blurring the whole board each frame during Flow.
+    @ViewBuilder private var flowBorder: some View {
+        let border = RoundedRectangle(cornerRadius: 8)
+            .stroke(flowActive ? Color.cyan.opacity(0.9) : Color.white.opacity(0.15),
+                    lineWidth: flowActive ? 2.5 : 1.5)
+        if flowActive {
+            border.shadow(color: .cyan.opacity(0.55), radius: 10)
+        } else {
+            border
+        }
     }
 }
 

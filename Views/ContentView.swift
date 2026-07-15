@@ -12,6 +12,10 @@ struct ContentView: View {
     /// Direction a drag locked into. Once latched, cross-axis motion is ignored, so a
     /// down-swipe can't drift the piece sideways and a side-swipe can't soft-drop it.
     @State private var dragAxis: DragAxis?
+    /// True only while a board drag is in flight. `@GestureState` auto-resets to false on
+    /// BOTH normal end and system cancellation (call banner, app switch), which `onEnded`
+    /// alone misses — that reset is what clears a stale axis latch / stuck soft drop.
+    @GestureState private var boardDragActive = false
 
     private enum DragAxis { case horizontal, vertical }
 
@@ -22,8 +26,9 @@ struct ContentView: View {
 
     private let tapThreshold: CGFloat = 12
     private let swipeThreshold: CGFloat = 24
-    /// Movement before a drag commits to an axis.
-    private let axisLatchThreshold: CGFloat = 10
+    /// Movement before a drag commits to an axis. Equal to `tapThreshold` so travel under
+    /// the tap threshold never latches (and never applies a stray nudge) — no dead band.
+    private var axisLatchThreshold: CGFloat { tapThreshold }
     /// Predicted (velocity-carried) downward travel that reads as a hard-drop flick.
     private let hardDropPredicted: CGFloat = 96
 
@@ -47,6 +52,15 @@ struct ContentView: View {
                     withAnimation(.interpolatingSpring(stiffness: 600, damping: 8)) { shake = magnitude }
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.06) {
                         withAnimation(.interpolatingSpring(stiffness: 400, damping: 12)) { shake = 0 }
+                    }
+                }
+                .onChange(of: boardDragActive) { active in
+                    // Fires on cancellation too (onEnded does not): clear transient drag state
+                    // so a stale axis latch or stuck soft drop can't corrupt the next gesture.
+                    if !active {
+                        vm.setSoftDrop(false)
+                        appliedCells = 0
+                        dragAxis = nil
                     }
                 }
 
@@ -188,6 +202,7 @@ struct ContentView: View {
 
     private func boardGesture(cell: CGFloat) -> some Gesture {
         DragGesture(minimumDistance: 0)
+            .updating($boardDragActive) { _, state, _ in state = true }
             .onChanged { value in
                 guard vm.engine.status == .playing else { return }
                 let t = value.translation
@@ -218,16 +233,20 @@ struct ContentView: View {
                 let t = value.translation
                 let p = value.predictedEndTranslation
 
-                switch dragAxis {
-                case nil:
-                    // Never latched an axis. A rotate is a deliberate tap: both the actual
-                    // AND the velocity-predicted travel must be tiny — a fast flick that
-                    // lifted early is a drop, not a rotate.
-                    if abs(p.width) < tapThreshold, abs(p.height) < tapThreshold {
-                        vm.rotate(clockwise: true)
-                    } else if p.height > hardDropPredicted, p.height > abs(p.width) {
+                // A tap → rotate is decided on ACTUAL travel: if the finger barely moved,
+                // it's a tap regardless of any transient latch or lift velocity. The one
+                // exception is a fast downward flick (tiny actual travel, large predicted
+                // downward) — that's a hard drop, not a rotate.
+                if abs(t.width) < tapThreshold, abs(t.height) < tapThreshold {
+                    if p.height > hardDropPredicted, p.height > abs(p.width) {
                         vm.hardDrop()
+                    } else {
+                        vm.rotate(clockwise: true)
                     }
+                    return
+                }
+
+                switch dragAxis {
                 case .vertical:
                     if t.height < -swipeThreshold {
                         vm.hold()
@@ -235,7 +254,13 @@ struct ContentView: View {
                         vm.hardDrop()
                     }
                 case .horizontal:
-                    break // movement already applied cell-by-cell during the drag
+                    // Horizontal moves already applied cell-by-cell — but a drag that slides
+                    // sideways and then flicks down still hard-drops (a common one-gesture idiom).
+                    if t.height > swipeThreshold, p.height > hardDropPredicted, p.height > abs(t.width) {
+                        vm.hardDrop()
+                    }
+                case nil:
+                    break
                 }
             }
     }
@@ -283,7 +308,11 @@ struct ContentView: View {
         let sideColumns: CGFloat = 2 * (size.width * 0.16)
         let widthBudget = size.width - sideColumns - 24
         let byWidth = widthBudget / 10
-        let byHeight = (size.height - 260) / 20
+        // Height reserved for non-board chrome (top bar, stats, controls, padding). Flow
+        // modes add a ~30pt meter bar above the board, so budget for it or the control pad
+        // clips on short devices (the base was already tight for the buttons scheme).
+        let reservedHeight: CGFloat = mode.flowEnabled ? 296 : 260
+        let byHeight = (size.height - reservedHeight) / 20
         return min(max(min(byWidth, byHeight), 12), 30)
     }
 

@@ -196,8 +196,9 @@ final class GameViewModel: NSObject, ObservableObject {
     func hold() { engine.hold(); frame &+= 1 }
 
     func activateFlow() {
-        guard engine.flowReady else { return }
-        engine.activateFlow()
+        // Gate the juice on the engine's own guards (flowReady AND !isClearing), so we
+        // never play the activation cue when the engine actually rejected activation.
+        guard engine.activateFlow() else { return }
         Haptics.shared.levelUp(); SoundManager.shared.levelUp()
         frame &+= 1
     }
