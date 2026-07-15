@@ -2,18 +2,7 @@ import XCTest
 @testable import TetrisEngine
 
 /// Rules specific to the Marathon, Classic (NES), and Zen modes.
-final class ClassicAndMarathonTests: XCTestCase {
-
-    private func engine(_ mode: GameMode, seed: UInt64 = 1) -> GameEngine {
-        GameEngine(mode: mode, rng: SeededGenerator(seed: seed))
-    }
-
-    /// A field whose bottom row is already full, so the next lock clears one line.
-    private func fieldWithFullBottomRow() -> Playfield {
-        var f = Playfield()
-        for x in 0..<f.width { f.setCell(.o, at: Coord(x, f.totalHeight - 1)) }
-        return f
-    }
+final class ClassicAndMarathonTests: EngineTestCase {
 
     // MARK: - Marathon
 
@@ -30,7 +19,7 @@ final class ClassicAndMarathonTests: XCTestCase {
         e.start()
         // Cheat the count up to the brink, then clear one real line.
         e._testSetLines(GameMode.marathonLineGoal - 1)
-        e._testLoadField(fieldWithFullBottomRow())
+        e._testLoadField(fieldWithFullBottomRows())
         e.hardDrop() // locks; the pre-filled full row clears → goal reached
         XCTAssertEqual(e.status, .finished)
         XCTAssertGreaterThanOrEqual(e.lines, GameMode.marathonLineGoal)
@@ -93,7 +82,7 @@ final class ClassicAndMarathonTests: XCTestCase {
     func testClassicUsesNesScoringWithoutGuidelineBonuses() {
         let e = engine(.classic)
         e.start()
-        e._testLoadField(fieldWithFullBottomRow())
+        e._testLoadField(fieldWithFullBottomRows())
         let dropPoints = 2 * e.field.dropDistance(e.current)
         e.hardDrop()
         XCTAssertEqual(e.lines, 1)

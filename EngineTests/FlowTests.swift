@@ -3,21 +3,7 @@ import XCTest
 
 /// The Flow mechanic: charge by clearing lines, activate to freeze gravity and bank
 /// full rows at the bottom, cash them all out (with an escalating bonus) when it ends.
-final class FlowTests: XCTestCase {
-
-    private func engine(_ mode: GameMode = .zen, seed: UInt64 = 1) -> GameEngine {
-        GameEngine(mode: mode, rng: SeededGenerator(seed: seed))
-    }
-
-    /// A field whose bottom `rows` rows are already full, so the next lock banks them.
-    private func fieldWithFullBottomRows(_ rows: Int = 1) -> Playfield {
-        var f = Playfield()
-        for r in 0..<rows {
-            let y = f.totalHeight - 1 - r
-            for x in 0..<f.width { f.setCell(.o, at: Coord(x, y)) }
-        }
-        return f
-    }
+final class FlowTests: EngineTestCase {
 
     // MARK: - Charging
 
