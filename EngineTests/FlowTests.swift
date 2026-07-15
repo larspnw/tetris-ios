@@ -27,7 +27,7 @@ final class FlowTests: XCTestCase {
         XCTAssertEqual(e.flowCharge, 0)
         e._testLoadField(fieldWithFullBottomRows(1))
         e.hardDrop()
-        XCTAssertEqual(e.flowCharge, 1.0 / Double(GameEngine.flowChargeLines), accuracy: 1e-9)
+        XCTAssertEqual(e.flowCharge, 1.0 / Double(GameEngine.flowChargeToReady), accuracy: 1e-9)
         XCTAssertFalse(e.flowReady)
     }
 
@@ -162,6 +162,118 @@ final class FlowTests: XCTestCase {
         XCTAssertEqual(e.flowCharge, 0)
         XCTAssertEqual(e.flowLines, 0)
         XCTAssertEqual(e.flowEndCount, 0)
+    }
+
+    // MARK: - Regression: soft drop still works during Flow
+
+    func testSoftDropLowersPieceDuringFlow() {
+        let e = engine(.zen)
+        e.start()
+        e._testFillFlowCharge()
+        e.activateFlow()
+        let y0 = e.current.origin.y
+        e.setSoftDrop(true)
+        e.advance(dt: 0.5)          // gravity is frozen, but soft drop should still descend
+        XCTAssertGreaterThan(e.current.origin.y, y0, "held soft drop lowers the piece during Flow")
+        XCTAssertGreaterThan(e.score, 0, "soft-drop points still accrue during Flow")
+        XCTAssertTrue(e.flowActive)
+    }
+
+    func testAutomaticGravityStillFrozenWithoutSoftDrop() {
+        let e = engine(.zen)
+        e.start()
+        e._testFillFlowCharge()
+        e.activateFlow()
+        let y0 = e.current.origin.y
+        e.advance(dt: 5)            // no soft drop → no descent
+        XCTAssertEqual(e.current.origin.y, y0)
+    }
+
+    // MARK: - Regression: hold() during Flow is bank-safe
+
+    /// Occupy the spawn box in `f` so the next spawn collides (keeps existing cells).
+    private func blockingSpawn(_ f: Playfield) -> Playfield {
+        var f = f
+        for y in 0..<(f.bufferHeight + 2) {
+            for x in 0..<f.width where !f.isOccupied(Coord(x, y)) { f.setCell(.i, at: Coord(x, y)) }
+        }
+        return f
+    }
+
+    func testHoldDuringFlowCashesOutInsteadOfToppingOut() {
+        let e = engine(.ultra)      // a mode that CAN top out
+        e.start()
+        e._testFillFlowCharge()
+        e.activateFlow()
+        // Bank 2 rows first.
+        e._testLoadField(fieldWithFullBottomRows(2))
+        e.hardDrop()
+        XCTAssertEqual(e.flowLines, 2)
+        // Now block the spawn and press hold → must cash out, not game over.
+        e._testLoadField(blockingSpawn(e.field))
+        let scoreBefore = e.score
+        e.hold()
+        XCTAssertNotEqual(e.status, .gameOver, "hold during Flow cashes out rather than topping out")
+        XCTAssertFalse(e.flowActive)
+        XCTAssertEqual(e.score, scoreBefore + Scorer.flowBonus(lines: 2, level: 1))
+    }
+
+    func testHoldDuringFlowInZenNeverCreditsVanishedRows() {
+        let e = engine(.zen)
+        e.start()
+        e._testFillFlowCharge()
+        e.activateFlow()
+        // Bank 3 real rows via a normal Flow lock.
+        e._testLoadField(fieldWithFullBottomRows(3))
+        e.hardDrop()
+        XCTAssertEqual(e.flowLines, 3)
+        // Block the spawn, keeping the 3 banked rows, then hold.
+        e._testLoadField(blockingSpawn(e.field))
+        e.hold()
+        // Cash-out happened; flow state is clean and lines were credited exactly once.
+        XCTAssertFalse(e.flowActive)
+        XCTAssertEqual(e.flowLines, 0)
+        XCTAssertEqual(e.lines, 3, "the 3 real banked rows counted once — no phantom credit")
+        // Let any remaining time pass; no second cash-out should fire.
+        let linesAfterHold = e.lines
+        e.advance(dt: GameEngine.flowDuration + 1)
+        XCTAssertEqual(e.lines, linesAfterHold, "no phantom lines after the hold cash-out")
+    }
+
+    // MARK: - Regression: meter fills exactly (no float drift)
+
+    func testMeterReadyAfterExactlyTwelveLinesAsSixDoubles() {
+        let e = engine(.zen)
+        e.start()
+        for _ in 0..<6 {
+            e._testLoadField(fieldWithFullBottomRows(2)) // clears 2 lines per lock
+            e.hardDrop()
+        }
+        XCTAssertEqual(e.flowCharge, 1.0, accuracy: 0)
+        XCTAssertTrue(e.flowReady, "12 lines as six doubles fills the meter exactly")
+    }
+
+    // MARK: - Regression: activateFlow reports success
+
+    func testActivateFlowReturnsFalseWhileClearing() {
+        let e = engine(.zen)
+        e.start()
+        e.lineClearDelay = 0.35
+        e._testFillFlowCharge()
+        e._testLoadField(fieldWithFullBottomRows(1))
+        e.hardDrop() // enters the line-clear animation (isClearing == true)
+        XCTAssertTrue(e.isClearing)
+        XCTAssertFalse(e.activateFlow(), "cannot activate mid clear; returns false so the app skips juice")
+        XCTAssertFalse(e.flowActive)
+    }
+
+    func testActivateFlowReturnsTrueOnSuccess() {
+        let e = engine(.zen)
+        e.start()
+        e._testFillFlowCharge()
+        XCTAssertTrue(e.activateFlow())
+        XCTAssertTrue(e.flowActive)
+        XCTAssertFalse(e.activateFlow(), "already active → false")
     }
 
     // MARK: - Playfield.sinkRows
