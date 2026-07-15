@@ -1,5 +1,11 @@
 import Foundation
 
+/// Which scoring rules a mode uses.
+public enum ScoringStyle: Equatable, Sendable {
+    case guideline  // T-spins, back-to-back, combo, perfect clear
+    case nes        // the 1989 table: 40/100/300/1200 × level, nothing else
+}
+
 /// Outcome of locking a piece, used to drive scoring and UI feedback.
 public struct ClearOutcome: Equatable, Sendable {
     public var linesCleared: Int
@@ -105,5 +111,28 @@ public struct Scorer: Sendable {
     public mutating func reset() {
         backToBackActive = false
         combo = -1
+    }
+
+    /// NES scoring: 40/100/300/1200 for 1–4 lines, multiplied by the (1-based) level.
+    /// (The engine's 1-based level equals the NES 0-based level + 1, which is exactly
+    /// the NES multiplier.) No T-spins, B2B, combos, or perfect clears in 1989.
+    public static func nesPoints(lines: Int, level: Int) -> Int {
+        let base: Int
+        switch lines {
+        case 1: base = 40
+        case 2: base = 100
+        case 3: base = 300
+        case 4: base = 1200
+        default: base = 0
+        }
+        return base * max(1, level)
+    }
+
+    /// Flow cash-out: a triangular escalation so banking more lines in one Flow is worth
+    /// far more than clearing them separately — 4 lines pay 1000×level (vs 800 for a
+    /// Tetris), 8 pay 3600×level, a full 16-line bank pays 13600×level.
+    public static func flowBonus(lines: Int, level: Int) -> Int {
+        guard lines > 0 else { return 0 }
+        return 100 * lines * (lines + 1) / 2 * max(1, level)
     }
 }

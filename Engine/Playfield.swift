@@ -82,6 +82,19 @@ public struct Playfield: Equatable, Sendable {
         return cleared
     }
 
+    /// Move the given rows to the bottom of the field, preserving their contents and
+    /// collapsing the rows above them downward. Used to bank full rows during Flow.
+    public mutating func sinkRows(_ rows: [Int]) {
+        let sink = Set(rows)
+        guard !sink.isEmpty else { return }
+        var kept: [[TetrominoKind?]] = []
+        var sunk: [[TetrominoKind?]] = []
+        for y in 0..<totalHeight {
+            if sink.contains(y) { sunk.append(cells[y]) } else { kept.append(cells[y]) }
+        }
+        cells = kept + sunk
+    }
+
     /// Drop distance (rows) until `piece` would rest on the stack/floor.
     public func dropDistance(_ piece: Piece) -> Int {
         var d = 0

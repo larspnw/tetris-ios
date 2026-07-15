@@ -17,6 +17,11 @@ public final class GameEngine {
     public static let maxLockResets = 15
     private static let softDropCellInterval: TimeInterval = 1.0 / 30.0
 
+    // Flow tuning: the meter fills after `flowChargeToReady` cleared lines; activating
+    // freezes gravity for `flowDuration` while full rows are banked instead of cleared.
+    public static let flowDuration: TimeInterval = 10
+    public static let flowChargeToReady = 12
+
     // Configuration.
     public let mode: GameMode
     public let previewCount: Int
@@ -39,6 +44,25 @@ public final class GameEngine {
     /// True when the current piece is resting on the stack/floor (lock delay is counting).
     public var isOnGround: Bool { field.collides(current.moved(dx: 0, dy: 1)) }
 
+    // Flow (zone-style) state.
+    /// Cleared lines banked toward the next Flow (integer so the meter fills exactly,
+    /// free of the float-accumulation drift that could leave it at 0.999… forever).
+    public private(set) var flowChargeLines = 0
+    public private(set) var flowActive = false
+    public private(set) var flowTimeRemaining: TimeInterval = 0
+    public private(set) var flowLines = 0                     // lines banked this Flow
+    public private(set) var lastFlowBonus = 0                 // points from the last cash-out
+    public private(set) var flowEndCount = 0                  // bumped per cash-out (UI event edge)
+
+    /// Meter fill, 0...1.
+    public var flowCharge: Double {
+        min(1, Double(flowChargeLines) / Double(Self.flowChargeToReady))
+    }
+    /// The meter is full and Flow can be activated right now.
+    public var flowReady: Bool {
+        mode.flowEnabled && !flowActive && flowChargeLines >= Self.flowChargeToReady && status == .playing
+    }
+
     /// Rows currently flashing before they collapse (empty unless mid line-clear animation).
     public private(set) var clearingRows: [Int] = []
     public var isClearing: Bool { !clearingRows.isEmpty }
@@ -49,7 +73,7 @@ public final class GameEngine {
     private var clearTimer: TimeInterval = 0
 
     // Internals.
-    private var bag: SevenBag
+    private var bag: any PieceRandomizer
     private var scorer = Scorer()
     private var canHold = true
     private var softDropping = false
@@ -60,12 +84,12 @@ public final class GameEngine {
     private var usedLongKick = false
 
     public init(mode: GameMode,
-                previewCount: Int = 5,
+                previewCount: Int? = nil,
                 rng: any RandomNumberGenerator = SystemRandomNumberGenerator()) {
         self.mode = mode
-        self.previewCount = previewCount
+        self.previewCount = previewCount ?? mode.defaultPreviewCount
         self.field = Playfield()
-        self.bag = SevenBag(rng: rng)
+        self.bag = mode.usesSevenBag ? SevenBag(rng: rng) : ClassicRandomizer(rng: rng)
         // Temporary; replaced in start().
         self.current = Piece(kind: .i, origin: Coord(0, 0))
     }
@@ -78,14 +102,14 @@ public final class GameEngine {
     /// The ghost (landing projection) of the current piece.
     public var ghost: Piece { field.ghost(current) }
 
-    /// Remaining time for Ultra (seconds), or nil for other modes.
+    /// Remaining time for a time-limited mode (Ultra), or nil otherwise.
     public var timeRemaining: TimeInterval? {
-        mode == .ultra ? max(0, GameMode.ultraDuration - elapsedTime) : nil
+        mode.duration.map { max(0, $0 - elapsedTime) }
     }
 
-    /// Lines left to clear for Sprint, or nil otherwise.
+    /// Lines left to clear for a line-goal mode (Sprint/Marathon), or nil otherwise.
     public var linesRemaining: Int? {
-        mode == .sprint ? max(0, GameMode.sprintLineGoal - lines) : nil
+        mode.lineGoal.map { max(0, $0 - lines) }
     }
 
     /// Spawn origin for a kind: horizontally centered, at the top of the visible field.
@@ -106,6 +130,8 @@ public final class GameEngine {
         lastActionWasRotation = false; usedLongKick = false
         lastOutcome = .zero
         clearingRows = []; clearTimer = 0
+        flowChargeLines = 0; flowActive = false; flowTimeRemaining = 0
+        flowLines = 0; lastFlowBonus = 0; flowEndCount = 0
         status = .playing
         spawnNext()
     }
@@ -136,8 +162,9 @@ public final class GameEngine {
         guard status == .playing else { return }
         elapsedTime += dt
 
-        if mode == .ultra && elapsedTime >= GameMode.ultraDuration {
-            elapsedTime = GameMode.ultraDuration
+        if let limit = mode.duration, elapsedTime >= limit {
+            elapsedTime = limit
+            if flowActive { endFlow() }   // cash out the banked lines before the buzzer
             status = .finished
             return
         }
@@ -149,13 +176,25 @@ public final class GameEngine {
             return
         }
 
+        if flowActive {
+            flowTimeRemaining -= dt
+            if flowTimeRemaining <= 0 {
+                endFlow()
+                if checkLineGoal() { return }
+            }
+        }
+
         let grounded = field.collides(current.moved(dx: 0, dy: 1))
         if grounded {
             lockTimer += dt
-            if lockTimer >= Self.lockDelay { lockCurrentPiece() }
+            if lockTimer >= effectiveLockDelay { lockCurrentPiece() }
         } else {
             lockTimer = 0
             lockResets = 0
+            // During Flow, automatic gravity is frozen — but the player can still soft-drop
+            // to place pieces into the bank. Only skip the fall loop when it would be pure
+            // gravity (nothing to do), so a held soft drop keeps working.
+            guard !flowActive || softDropping else { return }
             fallAccumulator += dt
             let interval = currentFallInterval()
             while fallAccumulator >= interval && !field.collides(current.moved(dx: 0, dy: 1)) {
@@ -168,8 +207,19 @@ public final class GameEngine {
     }
 
     private func currentFallInterval() -> TimeInterval {
-        let gravity = Gravity.secondsPerLine(level: level)
+        let gravity: TimeInterval
+        switch mode {
+        case .zen:     gravity = Gravity.zenSecondsPerLine
+        case .classic: gravity = Gravity.nesSecondsPerRow(nesLevel: level - 1)
+        default:       gravity = Gravity.secondsPerLine(level: level)
+        }
         return softDropping ? min(gravity, Self.softDropCellInterval) : gravity
+    }
+
+    /// Classic gets no modern lock delay — just the current gravity step to slide,
+    /// NES-style. Modern modes use the Guideline 0.5s.
+    private var effectiveLockDelay: TimeInterval {
+        mode == .classic ? currentFallInterval() : Self.lockDelay
     }
 
     // MARK: - Inputs
@@ -229,6 +279,7 @@ public final class GameEngine {
     }
 
     private func registerLockReset() {
+        guard mode != .classic else { return }                            // NES: no mercy
         guard field.collides(current.moved(dx: 0, dy: 1)) else { return } // only when grounded
         guard lockResets < Self.maxLockResets else { return }
         lockTimer = 0
@@ -246,52 +297,133 @@ public final class GameEngine {
         lockCurrentPiece()
     }
 
+    /// Enter Flow: gravity freezes and full rows are banked at the bottom of the field,
+    /// clearing all at once (with an escalating bonus) when the Flow ends. Returns whether
+    /// it actually started, so the app layer only plays activation feedback on success.
+    @discardableResult
+    public func activateFlow() -> Bool {
+        guard flowReady, !isClearing else { return false }
+        flowActive = true
+        flowChargeLines = 0
+        flowLines = 0
+        flowTimeRemaining = Self.flowDuration
+        return true
+    }
+
+    /// Cash out the banked rows, award the bonus, and count the lines.
+    private func endFlow() {
+        flowActive = false
+        flowTimeRemaining = 0
+        if flowLines > 0 {
+            field.clearFullLines()   // the only full rows are the banked ones
+            lastFlowBonus = Scorer.flowBonus(lines: flowLines, level: level)
+            score += lastFlowBonus
+            lines += flowLines
+            recomputeLevel()
+        } else {
+            lastFlowBonus = 0
+        }
+        flowLines = 0                // banked rows are gone; don't re-credit them later
+        flowEndCount += 1
+    }
+
+    private func chargeFlow(lines n: Int) {
+        guard mode.flowEnabled, !flowActive else { return }
+        flowChargeLines = min(Self.flowChargeToReady, flowChargeLines + n)
+    }
+
+    /// Whether `kind` can spawn at its origin without colliding.
+    private func canSpawn(_ kind: TetrominoKind) -> Bool {
+        !field.collides(Piece(kind: kind, state: .spawn, origin: spawnOrigin(for: kind)))
+    }
+
+    /// Spawn `kind`, but if an active Flow would otherwise top out on spawn, cash the
+    /// bank out first (clearing it usually frees the space). Used by the Flow lock path
+    /// and by hold() so neither can strand or lose a live bank.
+    private func flowSafeSpawn(kind: TetrominoKind) {
+        if flowActive, !canSpawn(kind) {
+            endFlow()
+            if checkLineGoal() { return }   // run finished on the cash-out
+        }
+        spawn(kind: kind)
+    }
+
+    /// Flow variant of the lock step: bank new full rows at the bottom instead of
+    /// scoring/clearing them, then bring in the next piece.
+    private func lockDuringFlow() {
+        // Banked rows sit full at the very bottom; any full row above them is new.
+        let newFull = field.fullRows().filter { $0 < field.totalHeight - flowLines }
+        if !newFull.isEmpty {
+            field.sinkRows(newFull)
+            flowLines += newFull.count
+        }
+        lastOutcome = .zero
+        piecesPlaced += 1
+        canHold = true
+        flowSafeSpawn(kind: bag.next())
+    }
+
     public func hold() {
-        guard status == .playing, canHold, !isClearing else { return }
+        guard status == .playing, canHold, mode.holdEnabled, !isClearing else { return }
         canHold = false
         let outgoing = current.kind
         if let h = holdKind {
             holdKind = outgoing
-            spawn(kind: h)
+            flowSafeSpawn(kind: h)   // flow-safe: cashes out rather than topping out
         } else {
             holdKind = outgoing
-            spawnNext()
+            flowSafeSpawn(kind: bag.next())
         }
     }
 
     // MARK: - Locking & clearing
 
     private func lockCurrentPiece() {
-        // Classify a T-spin from the resting position before locking.
-        let tspin = TSpinDetector.detect(piece: current,
-                                          field: field,
-                                          lastActionWasRotation: lastActionWasRotation,
-                                          usedLongKick: usedLongKick)
+        // Classify a T-spin from the resting position before locking (Guideline only).
+        let tspin: TSpin = mode.scoringStyle == .guideline
+            ? TSpinDetector.detect(piece: current,
+                                   field: field,
+                                   lastActionWasRotation: lastActionWasRotation,
+                                   usedLongKick: usedLongKick)
+            : .none
         field.lock(current)
+
+        if flowActive {
+            lockDuringFlow()
+            return
+        }
+
         let full = field.fullRows()
         let cleared = full.count
         // Would the field be empty once these rows are removed? (perfect clear)
         let perfect = (cleared > 0) && (field.filledCount == cleared * field.width)
 
-        if cleared > 0 || tspin != .none {
-            let outcome = scorer.register(lines: cleared, tspin: tspin, level: level, perfectClear: perfect)
-            score += outcome.points
-            lastOutcome = outcome
-        } else {
-            lastOutcome = .zero
-            _ = scorer.register(lines: 0, tspin: .none, level: level, perfectClear: false) // resets combo
+        switch mode.scoringStyle {
+        case .guideline:
+            if cleared > 0 || tspin != .none {
+                let outcome = scorer.register(lines: cleared, tspin: tspin, level: level, perfectClear: perfect)
+                score += outcome.points
+                lastOutcome = outcome
+            } else {
+                lastOutcome = .zero
+                _ = scorer.register(lines: 0, tspin: .none, level: level, perfectClear: false) // resets combo
+            }
+        case .nes:
+            let points = Scorer.nesPoints(lines: cleared, level: level)
+            score += points
+            lastOutcome = cleared > 0
+                ? ClearOutcome(linesCleared: cleared, tspin: .none, perfectClear: false,
+                               backToBack: false, combo: -1, points: points)
+                : .zero
         }
 
         lines += cleared
-        level = lines / 10 + 1
+        recomputeLevel()
         piecesPlaced += 1
+        if cleared > 0 { chargeFlow(lines: cleared) }
 
-        // Mode completion check (Sprint): finish immediately, removing the rows.
-        if mode == .sprint && lines >= GameMode.sprintLineGoal {
-            field.clearFullLines()
-            status = .finished
-            return
-        }
+        // Mode completion check (Sprint/Marathon): finish immediately, removing the rows.
+        if checkLineGoal() { return }
 
         if lineClearDelay > 0 && cleared > 0 {
             // Defer the collapse + next spawn so the UI can animate the full rows.
@@ -304,9 +436,25 @@ public final class GameEngine {
         }
     }
 
+    /// Finish the run if the mode's line goal has been reached. Returns true if it ended.
+    private func checkLineGoal() -> Bool {
+        guard let goal = mode.lineGoal, lines >= goal else { return false }
+        field.clearFullLines()
+        status = .finished
+        return true
+    }
+
+    /// Recompute the level from the cleared-line count (10 lines per level). One place so
+    /// normal locks and Flow cash-outs can never disagree on the curve.
+    private func recomputeLevel() { level = lines / 10 + 1 }
+
     #if DEBUG
     /// Test hook: load a specific board state (not part of the shipping API).
     func _testLoadField(_ f: Playfield) { field = f }
+    /// Test hook: pretend `n` lines have already been cleared (recomputes the level).
+    func _testSetLines(_ n: Int) { lines = n; recomputeLevel() }
+    /// Test hook: fill the Flow meter without grinding 12 line clears.
+    func _testFillFlowCharge() { flowChargeLines = Self.flowChargeToReady }
     #endif
 
     /// Remove the flashed rows and bring in the next piece (end of the clear animation).

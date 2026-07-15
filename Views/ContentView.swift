@@ -9,6 +9,15 @@ struct ContentView: View {
     @State private var showSettings = false
     @State private var appliedCells = 0
     @State private var shake: CGFloat = 0
+    /// Direction a drag locked into. Once latched, cross-axis motion is ignored, so a
+    /// down-swipe can't drift the piece sideways and a side-swipe can't soft-drop it.
+    @State private var dragAxis: DragAxis?
+    /// True only while a board drag is in flight. `@GestureState` auto-resets to false on
+    /// BOTH normal end and system cancellation (call banner, app switch), which `onEnded`
+    /// alone misses — that reset is what clears a stale axis latch / stuck soft drop.
+    @GestureState private var boardDragActive = false
+
+    private enum DragAxis { case horizontal, vertical }
 
     init(mode: GameMode) {
         self.mode = mode
@@ -17,6 +26,11 @@ struct ContentView: View {
 
     private let tapThreshold: CGFloat = 12
     private let swipeThreshold: CGFloat = 24
+    /// Movement before a drag commits to an axis. Equal to `tapThreshold` so travel under
+    /// the tap threshold never latches (and never applies a stray nudge) — no dead band.
+    private var axisLatchThreshold: CGFloat { tapThreshold }
+    /// Predicted (velocity-carried) downward travel that reads as a hard-drop flick.
+    private let hardDropPredicted: CGFloat = 96
 
     var body: some View {
         GeometryReader { geo in
@@ -26,6 +40,7 @@ struct ContentView: View {
                 VStack(spacing: 10) {
                     topBar
                     statsRow
+                    if mode.flowEnabled { flowBar }
                     boardRow(cell: cell)
                     Spacer(minLength: 4)
                     controls
@@ -37,6 +52,15 @@ struct ContentView: View {
                     withAnimation(.interpolatingSpring(stiffness: 600, damping: 8)) { shake = magnitude }
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.06) {
                         withAnimation(.interpolatingSpring(stiffness: 400, damping: 12)) { shake = 0 }
+                    }
+                }
+                .onChange(of: boardDragActive) { active in
+                    // Fires on cancellation too (onEnded does not): clear transient drag state
+                    // so a stale axis latch or stuck soft drop can't corrupt the next gesture.
+                    if !active {
+                        vm.setSoftDrop(false)
+                        appliedCells = 0
+                        dragAxis = nil
                     }
                 }
 
@@ -84,31 +108,75 @@ struct ContentView: View {
 
     private var goalTitle: String {
         switch mode {
-        case .sprint: return "LEFT"
-        case .ultra:  return "TIME"
-        case .zen:    return "TIME"
+        case .sprint, .marathon: return "LEFT"
+        case .ultra, .zen, .classic: return "TIME"
         }
     }
     private var goalValue: String {
         switch mode {
-        case .sprint: return "\(vm.engine.linesRemaining ?? 0)"
-        case .ultra:  return timeString(vm.engine.timeRemaining ?? 0)
-        case .zen:    return timeString(vm.engine.elapsedTime)
+        case .sprint, .marathon: return "\(vm.engine.linesRemaining ?? 0)"
+        case .ultra: return timeString(vm.engine.timeRemaining ?? 0)
+        case .zen, .classic: return timeString(vm.engine.elapsedTime)
         }
+    }
+
+    /// The Flow meter: fills as lines clear; tap when full to activate. While active it
+    /// drains with the remaining Flow time and shows the banked line count.
+    private var flowBar: some View {
+        let engine = vm.engine
+        let fill = engine.flowActive
+            ? engine.flowTimeRemaining / GameEngine.flowDuration
+            : engine.flowCharge
+        return Button { vm.activateFlow() } label: {
+            ZStack {
+                GeometryReader { g in
+                    RoundedRectangle(cornerRadius: 7)
+                        .fill(engine.flowActive
+                              ? Color.cyan
+                              : (engine.flowReady ? Color.cyan.opacity(0.85) : Color.purple.opacity(0.55)))
+                        .frame(width: max(0, g.size.width * fill))
+                }
+                Text(flowLabel)
+                    .font(.caption2).bold()
+                    .foregroundColor(.white)
+                    .shadow(color: .black.opacity(0.6), radius: 1)
+            }
+            .frame(height: 20)
+            .background(RoundedRectangle(cornerRadius: 7).fill(Color.white.opacity(0.08)))
+            .clipShape(RoundedRectangle(cornerRadius: 7))
+        }
+        .buttonStyle(.plain)
+        .disabled(!engine.flowReady)
+        .padding(.horizontal)
+        .accessibilityIdentifier("flowBar")
+    }
+
+    private var flowLabel: String {
+        let engine = vm.engine
+        if engine.flowActive { return "FLOW · \(engine.flowLines) BANKED" }
+        return engine.flowReady ? "FLOW READY — TAP" : "FLOW"
     }
 
     private func boardRow(cell: CGFloat) -> some View {
         HStack(alignment: .top, spacing: 8) {
             VStack(spacing: 6) {
-                Text("HOLD").font(.caption2).foregroundColor(.secondary)
-                PiecePreview(kind: vm.engine.holdKind, cellSize: cell * 0.5, dimmed: true)
+                if mode.holdEnabled {
+                    Text("HOLD").font(.caption2).foregroundColor(.secondary)
+                    PiecePreview(kind: vm.engine.holdKind, cellSize: cell * 0.5, dimmed: true)
+                } else {
+                    // Keep the board centered even without a hold box (Classic).
+                    Color.clear.frame(width: cell * 0.5 * 4.2, height: 1)
+                }
             }
-            GameBoardView(grid: BoardRenderer.grid(vm.engine, ghostOn: settings.ghostEnabled),
-                          cellSize: cell, clearProgress: vm.engine.clearProgress)
+            GameBoardView(grid: BoardRenderer.grid(vm.engine,
+                                                   ghostOn: settings.ghostEnabled && mode.ghostEnabled),
+                          cellSize: cell, clearProgress: vm.engine.clearProgress,
+                          flowActive: vm.engine.flowActive)
                 .gesture(boardGesture(cell: cell))
             VStack(spacing: 6) {
                 Text("NEXT").font(.caption2).foregroundColor(.secondary)
-                ForEach(Array(vm.engine.nextQueue().prefix(5).enumerated()), id: \.offset) { _, k in
+                ForEach(Array(vm.engine.nextQueue().prefix(vm.engine.previewCount).enumerated()),
+                        id: \.offset) { _, k in
                     PiecePreview(kind: k, cellSize: cell * 0.42)
                 }
             }
@@ -134,29 +202,65 @@ struct ContentView: View {
 
     private func boardGesture(cell: CGFloat) -> some Gesture {
         DragGesture(minimumDistance: 0)
+            .updating($boardDragActive) { _, state, _ in state = true }
             .onChanged { value in
                 guard vm.engine.status == .playing else { return }
-                // Cell-snapped horizontal movement.
-                let target = Int((value.translation.width / cell).rounded(.towardZero))
-                while appliedCells < target { vm.nudge(1); appliedCells += 1 }
-                while appliedCells > target { vm.nudge(-1); appliedCells -= 1 }
-                // Hold-to-soft-drop while dragging downward.
-                if value.translation.height > cell, abs(value.translation.width) < cell {
-                    vm.setSoftDrop(true)
+                let t = value.translation
+
+                // Latch the drag to one axis once the finger has clearly moved.
+                // Horizontal needs a 1.2× margin: a sloppy down-swipe stays vertical.
+                if dragAxis == nil, max(abs(t.width), abs(t.height)) >= axisLatchThreshold {
+                    dragAxis = abs(t.width) > abs(t.height) * 1.2 ? .horizontal : .vertical
+                }
+
+                switch dragAxis {
+                case .horizontal:
+                    // Cell-snapped horizontal movement.
+                    let target = Int((t.width / cell).rounded(.towardZero))
+                    while appliedCells < target { vm.nudge(1); appliedCells += 1 }
+                    while appliedCells > target { vm.nudge(-1); appliedCells -= 1 }
+                case .vertical:
+                    // Hold-to-soft-drop while dragging downward.
+                    if t.height > cell { vm.setSoftDrop(true) }
+                case nil:
+                    break
                 }
             }
             .onEnded { value in
                 vm.setSoftDrop(false)
-                defer { appliedCells = 0 }
+                defer { appliedCells = 0; dragAxis = nil }
                 guard vm.engine.status == .playing else { return }
                 let t = value.translation
                 let p = value.predictedEndTranslation
+
+                // A tap → rotate is decided on ACTUAL travel: if the finger barely moved,
+                // it's a tap regardless of any transient latch or lift velocity. The one
+                // exception is a fast downward flick (tiny actual travel, large predicted
+                // downward) — that's a hard drop, not a rotate.
                 if abs(t.width) < tapThreshold, abs(t.height) < tapThreshold {
-                    vm.rotate(clockwise: true)
-                } else if t.height < -swipeThreshold, abs(t.height) > abs(t.width) {
-                    vm.hold()
-                } else if t.height > swipeThreshold, abs(t.height) > abs(t.width) {
-                    if p.height > swipeThreshold * 4 { vm.hardDrop() } else { vm.setSoftDrop(false) }
+                    if p.height > hardDropPredicted, p.height > abs(p.width) {
+                        vm.hardDrop()
+                    } else {
+                        vm.rotate(clockwise: true)
+                    }
+                    return
+                }
+
+                switch dragAxis {
+                case .vertical:
+                    if t.height < -swipeThreshold {
+                        vm.hold()
+                    } else if t.height > swipeThreshold, p.height > hardDropPredicted {
+                        vm.hardDrop()
+                    }
+                case .horizontal:
+                    // Horizontal moves already applied cell-by-cell — but a drag that slides
+                    // sideways and then flicks down still hard-drops (a common one-gesture idiom).
+                    if t.height > swipeThreshold, p.height > hardDropPredicted, p.height > abs(t.width) {
+                        vm.hardDrop()
+                    }
+                case nil:
+                    break
                 }
             }
     }
@@ -193,7 +297,7 @@ struct ContentView: View {
 
     private var endTitle: String {
         if vm.engine.status == .finished {
-            return mode == .sprint ? "COMPLETE" : "TIME!"
+            return mode == .ultra ? "TIME!" : "COMPLETE"
         }
         return "GAME OVER"
     }
@@ -204,7 +308,11 @@ struct ContentView: View {
         let sideColumns: CGFloat = 2 * (size.width * 0.16)
         let widthBudget = size.width - sideColumns - 24
         let byWidth = widthBudget / 10
-        let byHeight = (size.height - 260) / 20
+        // Height reserved for non-board chrome (top bar, stats, controls, padding). Flow
+        // modes add a ~30pt meter bar above the board, so budget for it or the control pad
+        // clips on short devices (the base was already tight for the buttons scheme).
+        let reservedHeight: CGFloat = mode.flowEnabled ? 296 : 260
+        let byHeight = (size.height - reservedHeight) / 20
         return min(max(min(byWidth, byHeight), 12), 30)
     }
 
